@@ -130,6 +130,15 @@ def ReadOnly : EnumAttr<"readonly">;
 /// Return value is always equal to this argument.
 def Returned : EnumAttr<"returned">;
 
+/// Return value that is equal to this argument on enabled lanes (mask).
+def Passthru : EnumAttr<"passthru">;
+
+/// Mask argument that applies to this function.
+def Mask : EnumAttr<"mask">;
+
+/// Dynamic Vector Length argument of this function.
+def VectorLength : EnumAttr<"vlen">;
+
 /// Function can return twice.
 def ReturnsTwice : EnumAttr<"returns_twice">;
 
