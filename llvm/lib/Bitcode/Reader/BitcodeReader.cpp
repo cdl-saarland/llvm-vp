@@ -1438,6 +1438,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::InReg;
   case bitc::ATTR_KIND_JUMP_TABLE:
     return Attribute::JumpTable;
+  case bitc::ATTR_KIND_MASK:
+    return Attribute::Mask;
   case bitc::ATTR_KIND_MIN_SIZE:
     return Attribute::MinSize;
   case bitc::ATTR_KIND_NAKED:
@@ -1486,6 +1488,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::OptimizeForSize;
   case bitc::ATTR_KIND_OPTIMIZE_NONE:
     return Attribute::OptimizeNone;
+  case bitc::ATTR_KIND_PASSTHRU:
+    return Attribute::Passthru;
   case bitc::ATTR_KIND_READ_NONE:
     return Attribute::ReadNone;
   case bitc::ATTR_KIND_READ_ONLY:
@@ -1532,6 +1536,8 @@ static Attribute::AttrKind getAttrFromCode(uint64_t Code) {
     return Attribute::UWTable;
   case bitc::ATTR_KIND_WILLRETURN:
     return Attribute::WillReturn;
+  case bitc::ATTR_KIND_VECTORLENGTH:
+    return Attribute::VectorLength;
   case bitc::ATTR_KIND_WRITEONLY:
     return Attribute::WriteOnly;
   case bitc::ATTR_KIND_Z_EXT:
