@@ -52,6 +52,10 @@ class Type;
 class Value;
 class MDNode;
 class BinaryOperator;
+class EVLIntrinsic;
+namespace PatternMatch {
+  struct PredicatedContext;
+}
 
 /// InstrInfoQuery provides an interface to query additional information for
 /// instructions like metadata or keywords like nsw, which provides conservative
@@ -132,6 +136,13 @@ Value *SimplifyFAddInst(Value *LHS, Value *RHS, FastMathFlags FMF,
 /// Given operands for an FSub, fold the result or return null.
 Value *SimplifyFSubInst(Value *LHS, Value *RHS, FastMathFlags FMF,
                         const SimplifyQuery &Q);
+
+/// Given operands for an FSub, fold the result or return null.
+Value *SimplifyFSubInst(Value *LHS, Value *RHS, FastMathFlags FMF,
+                        const SimplifyQuery &Q);
+Value *SimplifyPredicatedFSubInst(Value *LHS, Value *RHS,
+                        FastMathFlags FMF, const SimplifyQuery &Q,
+                        PatternMatch::PredicatedContext & PC);
 
 /// Given operands for an FMul, fold the result or return null.
 Value *SimplifyFMulInst(Value *LHS, Value *RHS, FastMathFlags FMF,
@@ -244,6 +255,10 @@ Value *SimplifyCall(ImmutableCallSite CS, const SimplifyQuery &Q);
 /// null.
 Value *SimplifyCall(ImmutableCallSite CS, Value *V, User::op_iterator ArgBegin,
                     User::op_iterator ArgEnd, const SimplifyQuery &Q);
+
+/// Given a function and iterators over arguments, fold the result or return
+/// null.
+Value *SimplifyEVLIntrinsic(EVLIntrinsic & EVLInst, const SimplifyQuery &Q);
 
 /// Given a function and set of arguments, fold the result or return null.
 Value *SimplifyCall(ImmutableCallSite CS, Value *V, ArrayRef<Value *> Args,

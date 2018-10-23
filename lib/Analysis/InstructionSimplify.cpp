@@ -35,6 +35,7 @@
 #include "llvm/IR/GlobalAlias.h"
 #include "llvm/IR/Operator.h"
 #include "llvm/IR/PatternMatch.h"
+#include "llvm/IR/PredicatedInst.h"
 #include "llvm/IR/ValueHandle.h"
 #include "llvm/Support/KnownBits.h"
 #include <algorithm>
@@ -4559,8 +4560,10 @@ static Value *SimplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
 
 /// Given operands for an FSub, see if we can fold the result.  If not, this
 /// returns null.
-static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
-                               const SimplifyQuery &Q, unsigned MaxRecurse) {
+template<typename MatchContext>
+static Value *SimplifyFSubInstGeneric(Value *Op0, Value *Op1, FastMathFlags FMF,
+                               const SimplifyQuery &Q, unsigned MaxRecurse, MatchContext & MC) {
+
   if (Constant *C = foldOrCommuteConstant(Instruction::FSub, Op0, Op1, Q))
     return C;
 
@@ -4568,23 +4571,23 @@ static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
     return C;
 
   // fsub X, +0 ==> X
-  if (match(Op1, m_PosZeroFP()))
+  if (MC.try_match(Op1, m_PosZeroFP()))
     return Op0;
 
   // fsub X, -0 ==> X, when we know X is not -0
-  if (match(Op1, m_NegZeroFP()) &&
+  if (MC.try_match(Op1, m_NegZeroFP()) &&
       (FMF.noSignedZeros() || CannotBeNegativeZero(Op0, Q.TLI)))
     return Op0;
 
   // fsub -0.0, (fsub -0.0, X) ==> X
   Value *X;
-  if (match(Op0, m_NegZeroFP()) &&
-      match(Op1, m_FSub(m_NegZeroFP(), m_Value(X))))
+  if (MC.try_match(Op0, m_NegZeroFP()) &&
+      MC.try_match(Op1, m_FSub(m_NegZeroFP(), m_Value(X))))
     return X;
 
   // fsub 0.0, (fsub 0.0, X) ==> X if signed zeros are ignored.
   if (FMF.noSignedZeros() && match(Op0, m_AnyZeroFP()) &&
-      match(Op1, m_FSub(m_AnyZeroFP(), m_Value(X))))
+      MC.try_match(Op1, m_FSub(m_AnyZeroFP(), m_Value(X))))
     return X;
 
   // fsub nnan x, x ==> 0.0
@@ -4594,12 +4597,19 @@ static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
   // Y - (Y - X) --> X
   // (X + Y) - Y --> X
   if (FMF.noSignedZeros() && FMF.allowReassoc() &&
-      (match(Op1, m_FSub(m_Specific(Op0), m_Value(X))) ||
-       match(Op0, m_c_FAdd(m_Specific(Op1), m_Value(X)))))
+      (MC.try_match(Op1, m_FSub(m_Specific(Op0), m_Value(X))) ||
+       MC.try_match(Op0, m_c_FAdd(m_Specific(Op1), m_Value(X)))))
     return X;
 
   return nullptr;
 }
+
+static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
+                               const SimplifyQuery &Q, unsigned MaxRecurse) {
+  EmptyContext EC;
+  return SimplifyFSubInstGeneric<EmptyContext>(Op0, Op1, FMF, Q, MaxRecurse, EC);
+}
+
 
 /// Given the operands for an FMul, see if we can fold the result
 static Value *SimplifyFMulInst(Value *Op0, Value *Op1, FastMathFlags FMF,
@@ -4639,6 +4649,11 @@ Value *llvm::SimplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
 Value *llvm::SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
                               const SimplifyQuery &Q) {
   return ::SimplifyFSubInst(Op0, Op1, FMF, Q, RecursionLimit);
+}
+
+Value *llvm::SimplifyPredicatedFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
+                              const SimplifyQuery &Q, PredicatedContext & PC) {
+  return ::SimplifyFSubInstGeneric<PredicatedContext>(Op0, Op1, FMF, Q, RecursionLimit, PC);
 }
 
 Value *llvm::SimplifyFMulInst(Value *Op0, Value *Op1, FastMathFlags FMF,
@@ -5190,9 +5205,20 @@ Value *llvm::SimplifyCall(ImmutableCallSite ICS, const SimplifyQuery &Q) {
                         Q, RecursionLimit);
 }
 
+Value *llvm::SimplifyEVLIntrinsic(EVLIntrinsic & EVLInst, const SimplifyQuery &Q) {
+  PredicatedContext PC(&EVLInst);
+
+  auto & PI = cast<PredicatedInstruction>(EVLInst);
+  switch (PI.getOpcode()) {
+    default:
+      return nullptr;
+
+    case Instruction::FSub: return SimplifyPredicatedFSubInst(EVLInst.getOperand(0), EVLInst.getOperand(1), EVLInst.getFastMathFlags(), Q, PC);
+  }
+}
+
 /// See if we can compute a simplified version of this instruction.
 /// If not, this returns null.
-
 Value *llvm::SimplifyInstruction(Instruction *I, const SimplifyQuery &SQ,
                                  OptimizationRemarkEmitter *ORE) {
   const SimplifyQuery Q = SQ.CxtI ? SQ : SQ.getWithInstruction(I);
@@ -5326,6 +5352,12 @@ Value *llvm::SimplifyInstruction(Instruction *I, const SimplifyQuery &SQ,
     Result = SimplifyPHINode(cast<PHINode>(I), Q);
     break;
   case Instruction::Call: {
+    auto * EVL = dyn_cast<EVLIntrinsic>(I);
+    if (EVL) {
+      Result = SimplifyEVLIntrinsic(*EVL, Q);
+      if (Result) break;
+    }
+
     CallSite CS(cast<CallInst>(I));
     Result = SimplifyCall(CS, Q);
     break;

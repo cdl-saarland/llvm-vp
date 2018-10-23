@@ -3982,6 +3982,46 @@ void SelectionDAGBuilder::visitMaskedStore(const CallInst &I,
   setValue(&I, StoreNode);
 }
 
+void SelectionDAGBuilder::visitStoreEVL(const CallInst &I) {
+  SDLoc sdl = getCurSDLoc();
+
+  auto getEVLStoreOps = [&](Value* &Ptr, Value* &Mask, Value* &Src0,
+                            Value * &VLen, unsigned & Alignment) {
+    // llvm.masked.store.*(Src0, Ptr, Mask, VLen)
+    Src0 = I.getArgOperand(0);
+    Ptr = I.getArgOperand(1);
+    Alignment = I.getParamAlignment(1);
+    Mask = I.getArgOperand(2);
+    VLen = I.getArgOperand(3);
+  };
+
+  Value  *PtrOperand, *MaskOperand, *Src0Operand, *VLenOperand;
+  unsigned Alignment = 0;
+  getEVLStoreOps(PtrOperand, MaskOperand, Src0Operand, VLenOperand, Alignment);
+
+  SDValue Ptr = getValue(PtrOperand);
+  SDValue Src0 = getValue(Src0Operand);
+  SDValue Mask = getValue(MaskOperand);
+  SDValue VLen = getValue(VLenOperand);
+
+  EVT VT = Src0.getValueType();
+  if (!Alignment)
+    Alignment = DAG.getEVTAlignment(VT);
+
+  AAMDNodes AAInfo;
+  I.getAAMetadata(AAInfo);
+
+  MachineMemOperand *MMO =
+    DAG.getMachineFunction().
+    getMachineMemOperand(MachinePointerInfo(PtrOperand),
+                          MachineMemOperand::MOStore,  VT.getStoreSize(),
+                          Alignment, AAInfo);
+  SDValue StoreNode = DAG.getStoreEVL(getRoot(), sdl, Src0, Ptr, Mask, VLen, VT,
+                                         MMO, false /* Truncating */);
+  DAG.setRoot(StoreNode);
+  setValue(&I, StoreNode);
+}
+
 // Get a uniform base for the Gather/Scatter intrinsic.
 // The first argument of the Gather/Scatter intrinsic is a vector of pointers.
 // We try to represent it as a base pointer + vector of indices.
@@ -4198,6 +4238,158 @@ void SelectionDAGBuilder::visitMaskedGather(const CallInst &I) {
   if (!ConstantMemory)
     PendingLoads.push_back(OutChain);
   setValue(&I, Gather);
+}
+
+void SelectionDAGBuilder::visitGatherEVL(const CallInst &I) {
+  SDLoc sdl = getCurSDLoc();
+
+  // @llvm.evl.gather.*(Ptrs, Mask, VLen)
+  const Value *Ptr = I.getArgOperand(0);
+  SDValue Mask = getValue(I.getArgOperand(1));
+  SDValue VLen = getValue(I.getArgOperand(2));
+
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  EVT VT = TLI.getValueType(DAG.getDataLayout(), I.getType());
+  unsigned Alignment = I.getParamAlignment(0);
+  if (!Alignment)
+    Alignment = DAG.getEVTAlignment(VT);
+
+  AAMDNodes AAInfo;
+  I.getAAMetadata(AAInfo);
+  const MDNode *Ranges = I.getMetadata(LLVMContext::MD_range);
+
+  SDValue Root = DAG.getRoot();
+  SDValue Base;
+  SDValue Index;
+  SDValue Scale;
+  const Value *BasePtr = Ptr;
+  bool UniformBase = getUniformBase(BasePtr, Base, Index, Scale, this);
+  bool ConstantMemory = false;
+  if (UniformBase && AA &&
+      AA->pointsToConstantMemory(
+          MemoryLocation(BasePtr,
+                         LocationSize::precise(
+                             DAG.getDataLayout().getTypeStoreSize(I.getType())),
+                         AAInfo))) {
+    // Do not serialize (non-volatile) loads of constant memory with anything.
+    Root = DAG.getEntryNode();
+    ConstantMemory = true;
+  }
+
+  MachineMemOperand *MMO =
+    DAG.getMachineFunction().
+    getMachineMemOperand(MachinePointerInfo(UniformBase ? BasePtr : nullptr),
+                         MachineMemOperand::MOLoad,  VT.getStoreSize(),
+                         Alignment, AAInfo, Ranges);
+
+  if (!UniformBase) {
+    Base = DAG.getConstant(0, sdl, TLI.getPointerTy(DAG.getDataLayout()));
+    Index = getValue(Ptr);
+    Scale = DAG.getTargetConstant(1, sdl, TLI.getPointerTy(DAG.getDataLayout()));
+  }
+  SDValue Ops[] = { Root, Base, Index, Scale, Mask, VLen };
+  SDValue Gather = DAG.getGatherEVL(DAG.getVTList(VT, MVT::Other), VT, sdl, Ops, MMO);
+
+  SDValue OutChain = Gather.getValue(1);
+  if (!ConstantMemory)
+    PendingLoads.push_back(OutChain);
+  setValue(&I, Gather);
+}
+
+void SelectionDAGBuilder::visitScatterEVL(const CallInst &I) {
+  SDLoc sdl = getCurSDLoc();
+
+  // llvm.evl.scatter.*(Src0, Ptrs, Mask, VLen)
+  const Value *Ptr = I.getArgOperand(1);
+  SDValue Src0 = getValue(I.getArgOperand(0));
+  SDValue Mask = getValue(I.getArgOperand(2));
+  SDValue VLen = getValue(I.getArgOperand(3));
+  EVT VT = Src0.getValueType();
+  unsigned Alignment = I.getParamAlignment(1);
+  if (!Alignment)
+    Alignment = DAG.getEVTAlignment(VT);
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+
+  AAMDNodes AAInfo;
+  I.getAAMetadata(AAInfo);
+
+  SDValue Base;
+  SDValue Index;
+  SDValue Scale;
+  const Value *BasePtr = Ptr;
+  bool UniformBase = getUniformBase(BasePtr, Base, Index, Scale, this);
+
+  const Value *MemOpBasePtr = UniformBase ? BasePtr : nullptr;
+  MachineMemOperand *MMO = DAG.getMachineFunction().
+    getMachineMemOperand(MachinePointerInfo(MemOpBasePtr),
+                         MachineMemOperand::MOStore,  VT.getStoreSize(),
+                         Alignment, AAInfo);
+  if (!UniformBase) {
+    Base = DAG.getConstant(0, sdl, TLI.getPointerTy(DAG.getDataLayout()));
+    Index = getValue(Ptr);
+    Scale = DAG.getTargetConstant(1, sdl, TLI.getPointerTy(DAG.getDataLayout()));
+  }
+  SDValue Ops[] = { getRoot(), Src0, Base, Index, Scale, Mask, VLen };
+  SDValue Scatter = DAG.getScatterEVL(DAG.getVTList(MVT::Other), VT, sdl,
+                                         Ops, MMO);
+  DAG.setRoot(Scatter);
+  setValue(&I, Scatter);
+}
+
+void SelectionDAGBuilder::visitLoadEVL(const CallInst &I) {
+  SDLoc sdl = getCurSDLoc();
+
+  auto getMaskedLoadOps = [&](Value* &Ptr, Value* &Mask, Value* &VLen,
+                           unsigned& Alignment) {
+    // @llvm.evl.load.*(Ptr, Mask, Vlen)
+    Ptr = I.getArgOperand(0);
+    Alignment = I.getParamAlignment(0);
+    Mask = I.getArgOperand(1);
+    VLen = I.getArgOperand(2);
+  };
+
+  Value  *PtrOperand, *MaskOperand, *VLenOperand;
+  unsigned Alignment;
+  getMaskedLoadOps(PtrOperand, MaskOperand, VLenOperand, Alignment);
+
+  SDValue Ptr = getValue(PtrOperand);
+  SDValue VLen = getValue(VLenOperand);
+  SDValue Mask = getValue(MaskOperand);
+
+  // infer the return type
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  SmallVector<EVT, 4> ValValueVTs;
+  ComputeValueVTs(TLI, DAG.getDataLayout(), I.getType(), ValValueVTs);
+  EVT VT = ValValueVTs[0];
+  assert((ValValueVTs.size() == 1) && "splitting not implemented");
+
+  if (!Alignment)
+    Alignment = DAG.getEVTAlignment(VT);
+
+  AAMDNodes AAInfo;
+  I.getAAMetadata(AAInfo);
+  const MDNode *Ranges = I.getMetadata(LLVMContext::MD_range);
+
+  // Do not serialize masked loads of constant memory with anything.
+  bool AddToChain =
+      !AA || !AA->pointsToConstantMemory(MemoryLocation(
+                 PtrOperand,
+                 LocationSize::precise(
+                     DAG.getDataLayout().getTypeStoreSize(I.getType())),
+                 AAInfo));
+  SDValue InChain = AddToChain ? DAG.getRoot() : DAG.getEntryNode();
+
+  MachineMemOperand *MMO =
+    DAG.getMachineFunction().
+    getMachineMemOperand(MachinePointerInfo(PtrOperand),
+                          MachineMemOperand::MOLoad,  VT.getStoreSize(),
+                          Alignment, AAInfo, Ranges);
+
+  SDValue Load = DAG.getLoadEVL(VT, sdl, InChain, Ptr, Mask, VLen, VT, MMO,
+                                   ISD::NON_EXTLOAD);
+  if (AddToChain)
+    PendingLoads.push_back(Load.getValue(1));
+  setValue(&I, Load);
 }
 
 void SelectionDAGBuilder::visitAtomicCmpXchg(const AtomicCmpXchgInst &I) {
@@ -5711,6 +5903,63 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::experimental_constrained_trunc:
     visitConstrainedFPIntrinsic(cast<ConstrainedFPIntrinsic>(I));
     return nullptr;
+
+  case Intrinsic::evl_and:
+  case Intrinsic::evl_or:
+  case Intrinsic::evl_xor:
+  case Intrinsic::evl_ashr:
+  case Intrinsic::evl_lshr:
+  case Intrinsic::evl_shl:
+
+  case Intrinsic::evl_select:
+  case Intrinsic::evl_compose:
+  case Intrinsic::evl_compress:
+  case Intrinsic::evl_expand:
+  case Intrinsic::evl_vshift:
+
+  case Intrinsic::evl_load:
+  case Intrinsic::evl_store:
+  case Intrinsic::evl_gather:
+  case Intrinsic::evl_scatter:
+
+  case Intrinsic::evl_fneg:
+
+  case Intrinsic::evl_fadd:
+  case Intrinsic::evl_fsub:
+  case Intrinsic::evl_fmul:
+  case Intrinsic::evl_fdiv:
+  case Intrinsic::evl_frem:
+
+  case Intrinsic::evl_fma:
+
+  case Intrinsic::evl_add:
+  case Intrinsic::evl_sub:
+  case Intrinsic::evl_mul:
+  case Intrinsic::evl_udiv:
+  case Intrinsic::evl_sdiv:
+  case Intrinsic::evl_urem:
+  case Intrinsic::evl_srem:
+
+  case Intrinsic::evl_cmp:
+
+  case Intrinsic::evl_reduce_and:
+  case Intrinsic::evl_reduce_or:
+  case Intrinsic::evl_reduce_xor:
+
+  case Intrinsic::evl_reduce_fadd:
+  case Intrinsic::evl_reduce_fmax:
+  case Intrinsic::evl_reduce_fmin:
+  case Intrinsic::evl_reduce_fmul:
+
+  case Intrinsic::evl_reduce_add:
+  case Intrinsic::evl_reduce_mul:
+  case Intrinsic::evl_reduce_umax:
+  case Intrinsic::evl_reduce_umin:
+  case Intrinsic::evl_reduce_smax:
+  case Intrinsic::evl_reduce_smin:
+    visitExplicitVectorLengthIntrinsic(cast<EVLIntrinsic>(I));
+    return nullptr;
+
   case Intrinsic::fmuladd: {
     EVT VT = TLI.getValueType(DAG.getDataLayout(), I.getType());
     if (TM.Options.AllowFPOpFusion != FPOpFusion::Strict &&
@@ -6522,6 +6771,138 @@ void SelectionDAGBuilder::visitConstrainedFPIntrinsic(
   DAG.setRoot(OutChain);
   SDValue FPResult = Result.getValue(0);
   setValue(&FPI, FPResult);
+}
+
+void SelectionDAGBuilder::visitCmpEVL(const EVLIntrinsic &I) {
+  ISD::CondCode Condition;
+  CmpInst::Predicate predicate = I.getCmpPredicate();
+  bool IsFP = I.getOperand(0)->getType()->isFPOrFPVectorTy();
+  if (IsFP) {
+    Condition = getFCmpCondCode(predicate);
+    auto *FPMO = dyn_cast<FPMathOperator>(&I);
+    if ((FPMO && FPMO->hasNoNaNs()) || TM.Options.NoNaNsFPMath)
+      Condition = getFCmpCodeWithoutNaN(Condition);
+
+  } else {
+    Condition = getICmpCondCode(predicate);
+  }
+
+  SDValue Op1 = getValue(I.getOperand(0));
+  SDValue Op2 = getValue(I.getOperand(1));
+
+  EVT DestVT = DAG.getTargetLoweringInfo().getValueType(DAG.getDataLayout(),
+                                                        I.getType());
+  setValue(&I, DAG.getSetCC(getCurSDLoc(), DestVT, Op1, Op2, Condition));
+}
+
+void SelectionDAGBuilder::visitExplicitVectorLengthIntrinsic(
+    const EVLIntrinsic & EVLInst) {
+  SDLoc sdl = getCurSDLoc();
+  unsigned Opcode;
+  switch (EVLInst.getIntrinsicID()) {
+  default:
+    llvm_unreachable("Unforeseen intrinsic");  // Can't reach here.
+
+  case Intrinsic::evl_load: visitLoadEVL(EVLInst); return;
+  case Intrinsic::evl_store: visitStoreEVL(EVLInst); return;
+  case Intrinsic::evl_gather: visitGatherEVL(EVLInst); return;
+  case Intrinsic::evl_scatter: visitScatterEVL(EVLInst); return;
+
+  case Intrinsic::evl_cmp: visitCmpEVL(EVLInst); return;
+
+  case Intrinsic::evl_add: Opcode = ISD::EVL_ADD; break;
+  case Intrinsic::evl_sub: Opcode = ISD::EVL_SUB; break;
+  case Intrinsic::evl_mul: Opcode = ISD::EVL_MUL; break;
+  case Intrinsic::evl_udiv: Opcode = ISD::EVL_UDIV; break;
+  case Intrinsic::evl_sdiv: Opcode = ISD::EVL_SDIV; break;
+  case Intrinsic::evl_urem: Opcode = ISD::EVL_UREM; break;
+  case Intrinsic::evl_srem: Opcode = ISD::EVL_SREM; break;
+
+  case Intrinsic::evl_and: Opcode = ISD::EVL_AND; break;
+  case Intrinsic::evl_or: Opcode = ISD::EVL_OR; break;
+  case Intrinsic::evl_xor: Opcode = ISD::EVL_XOR; break;
+  case Intrinsic::evl_ashr: Opcode = ISD::EVL_SRA; break;
+  case Intrinsic::evl_lshr: Opcode = ISD::EVL_SRL; break;
+  case Intrinsic::evl_shl: Opcode = ISD::EVL_SHL; break;
+
+  case Intrinsic::evl_fneg: Opcode = ISD::EVL_FNEG; break;
+  case Intrinsic::evl_fadd: Opcode = ISD::EVL_FADD; break;
+  case Intrinsic::evl_fsub: Opcode = ISD::EVL_FSUB; break;
+  case Intrinsic::evl_fmul: Opcode = ISD::EVL_FMUL; break;
+  case Intrinsic::evl_fdiv: Opcode = ISD::EVL_FDIV; break;
+  case Intrinsic::evl_frem: Opcode = ISD::EVL_FREM; break;
+
+  case Intrinsic::evl_fma: Opcode = ISD::EVL_FMA; break;
+
+  case Intrinsic::evl_select: Opcode = ISD::EVL_SELECT; break;
+  case Intrinsic::evl_compose: Opcode = ISD::EVL_COMPOSE; break;
+  case Intrinsic::evl_compress: Opcode = ISD::EVL_COMPRESS; break;
+  case Intrinsic::evl_expand: Opcode = ISD::EVL_EXPAND; break;
+  case Intrinsic::evl_vshift: Opcode = ISD::EVL_VSHIFT; break;
+
+  case Intrinsic::evl_reduce_and: Opcode = ISD::EVL_REDUCE_AND; break;
+  case Intrinsic::evl_reduce_or: Opcode = ISD::EVL_REDUCE_OR; break;
+  case Intrinsic::evl_reduce_xor: Opcode = ISD::EVL_REDUCE_XOR; break;
+  case Intrinsic::evl_reduce_add: Opcode = ISD::EVL_REDUCE_ADD; break;
+  case Intrinsic::evl_reduce_mul: Opcode = ISD::EVL_REDUCE_MUL; break;
+  case Intrinsic::evl_reduce_fadd: Opcode = ISD::EVL_REDUCE_FADD; break;
+  case Intrinsic::evl_reduce_fmul: Opcode = ISD::EVL_REDUCE_FMUL; break;
+  case Intrinsic::evl_reduce_smax: Opcode = ISD::EVL_REDUCE_SMAX; break;
+  case Intrinsic::evl_reduce_smin: Opcode = ISD::EVL_REDUCE_SMIN; break;
+  case Intrinsic::evl_reduce_umax: Opcode = ISD::EVL_REDUCE_UMAX; break;
+  case Intrinsic::evl_reduce_umin: Opcode = ISD::EVL_REDUCE_UMIN; break;
+  }
+
+  // TODO memory evl: SDValue Chain = getRoot();
+
+  SmallVector<EVT, 4> ValueVTs;
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  ComputeValueVTs(TLI, DAG.getDataLayout(), EVLInst.getType(), ValueVTs);
+  SDVTList VTs = DAG.getVTList(ValueVTs);
+
+  // ValueVTs.push_back(MVT::Other); // Out chain
+
+
+  SDValue Result;
+
+  switch (EVLInst.getNumArgOperands()) {
+    default:
+      llvm_unreachable("unexpected number of arguments to evl intrinsic");
+    case 3:
+    Result = DAG.getNode(Opcode, sdl, VTs,
+                         { getValue(EVLInst.getArgOperand(0)),
+                           getValue(EVLInst.getArgOperand(1)),
+                           getValue(EVLInst.getArgOperand(2)) });
+    break;
+
+    case 4:
+    Result = DAG.getNode(Opcode, sdl, VTs,
+                         { getValue(EVLInst.getArgOperand(0)),
+                           getValue(EVLInst.getArgOperand(1)),
+                           getValue(EVLInst.getArgOperand(2)),
+                           getValue(EVLInst.getArgOperand(3)) });
+    break;
+
+    case 5:
+    Result = DAG.getNode(Opcode, sdl, VTs,
+                          { getValue(EVLInst.getArgOperand(0)),
+                            getValue(EVLInst.getArgOperand(1)),
+                            getValue(EVLInst.getArgOperand(2)),
+                            getValue(EVLInst.getArgOperand(3)),
+                            getValue(EVLInst.getArgOperand(4)) });
+    break;
+  }
+
+  if (Result.getNode()->getNumValues() == 2) {
+    // this evl node has a chain
+    SDValue OutChain = Result.getValue(1);
+    DAG.setRoot(OutChain);
+    SDValue EVLResult = Result.getValue(0);
+    setValue(&EVLInst, EVLResult);
+  } else {
+    // this is a pure node
+    setValue(&EVLInst, Result);
+  }
 }
 
 std::pair<SDValue, SDValue>

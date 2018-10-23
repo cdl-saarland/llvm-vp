@@ -533,6 +533,7 @@ protected:
   class LoadSDNodeBitfields {
     friend class LoadSDNode;
     friend class MaskedLoadSDNode;
+    friend class EVLLoadSDNode;
 
     uint16_t : NumLSBaseSDNodeBits;
 
@@ -543,6 +544,7 @@ protected:
   class StoreSDNodeBitfields {
     friend class StoreSDNode;
     friend class MaskedStoreSDNode;
+    friend class EVLStoreSDNode;
 
     uint16_t : NumLSBaseSDNodeBits;
 
@@ -679,6 +681,66 @@ public:
         return true;
     }
   }
+
+  /// Test whether this is an Explicit Vector Length node.
+  bool isEVL() const {
+    switch (NodeType) {
+      default:
+        return false;
+      case ISD::EVL_LOAD:
+      case ISD::EVL_STORE:
+      case ISD::EVL_GATHER:
+      case ISD::EVL_SCATTER:
+
+      case ISD::EVL_FNEG:
+
+      case ISD::EVL_FADD:
+      case ISD::EVL_FMUL:
+      case ISD::EVL_FSUB:
+      case ISD::EVL_FDIV:
+      case ISD::EVL_FREM:
+
+      case ISD::EVL_FMA:
+
+      case ISD::EVL_ADD:
+      case ISD::EVL_MUL:
+      case ISD::EVL_SUB:
+      case ISD::EVL_SRA:
+      case ISD::EVL_SRL:
+      case ISD::EVL_SHL:
+      case ISD::EVL_UDIV:
+      case ISD::EVL_SDIV:
+      case ISD::EVL_UREM:
+      case ISD::EVL_SREM:
+
+      case ISD::EVL_EXPAND:
+      case ISD::EVL_COMPRESS:
+      case ISD::EVL_VSHIFT:
+      case ISD::EVL_SETCC:
+      case ISD::EVL_COMPOSE:
+
+      case ISD::EVL_AND:
+      case ISD::EVL_XOR:
+      case ISD::EVL_OR:
+
+      case ISD::EVL_REDUCE_ADD:
+      case ISD::EVL_REDUCE_SMIN:
+      case ISD::EVL_REDUCE_SMAX:
+      case ISD::EVL_REDUCE_UMIN:
+      case ISD::EVL_REDUCE_UMAX:
+
+      case ISD::EVL_REDUCE_MUL:
+      case ISD::EVL_REDUCE_AND:
+      case ISD::EVL_REDUCE_OR:
+      case ISD::EVL_REDUCE_FADD:
+      case ISD::EVL_REDUCE_FMUL:
+      case ISD::EVL_REDUCE_FMIN:
+      case ISD::EVL_REDUCE_FMAX:
+
+        return true;
+    }
+  }
+
 
   /// Test if this node has a post-isel opcode, directly
   /// corresponding to a MachineInstr opcode.
@@ -1367,6 +1429,10 @@ public:
            N->getOpcode() == ISD::MSTORE              ||
            N->getOpcode() == ISD::MGATHER             ||
            N->getOpcode() == ISD::MSCATTER            ||
+           N->getOpcode() == ISD::EVL_LOAD            ||
+           N->getOpcode() == ISD::EVL_STORE           ||
+           N->getOpcode() == ISD::EVL_GATHER          ||
+           N->getOpcode() == ISD::EVL_SCATTER         ||
            N->isMemIntrinsic()                        ||
            N->isTargetMemoryOpcode();
   }
@@ -2140,6 +2206,96 @@ public:
 };
 
 /// This base class is used to represent MLOAD and MSTORE nodes
+class EVLLoadStoreSDNode : public MemSDNode {
+public:
+  friend class SelectionDAG;
+
+  EVLLoadStoreSDNode(ISD::NodeType NodeTy, unsigned Order,
+                        const DebugLoc &dl, SDVTList VTs, EVT MemVT,
+                        MachineMemOperand *MMO)
+      : MemSDNode(NodeTy, Order, dl, VTs, MemVT, MMO) {}
+
+  // EVLLoadSDNode (Chain, ptr, mask, VLen)
+  // EVLStoreSDNode (Chain, data, ptr, mask, VLen)
+  // Mask is a vector of i1 elements, Vlen is i32
+  const SDValue &getBasePtr() const {
+    return getOperand(getOpcode() == ISD::EVL_LOAD ? 1 : 2);
+  }
+  const SDValue &getMask() const {
+    return getOperand(getOpcode() == ISD::EVL_LOAD ? 2 : 3);
+  }
+  const SDValue &getVectorLength() const {
+    return getOperand(getOpcode() == ISD::EVL_LOAD ? 3 : 4);
+  }
+
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == ISD::EVL_LOAD ||
+           N->getOpcode() == ISD::EVL_STORE;
+  }
+};
+
+/// This class is used to represent an MLOAD node
+class EVLLoadSDNode : public EVLLoadStoreSDNode {
+public:
+  friend class SelectionDAG;
+
+  EVLLoadSDNode(unsigned Order, const DebugLoc &dl, SDVTList VTs,
+                   ISD::LoadExtType ETy, EVT MemVT,
+                   MachineMemOperand *MMO)
+      : EVLLoadStoreSDNode(ISD::EVL_LOAD, Order, dl, VTs, MemVT, MMO) {
+    LoadSDNodeBits.ExtTy = ETy;
+    LoadSDNodeBits.IsExpanding = false;
+  }
+
+  ISD::LoadExtType getExtensionType() const {
+    return static_cast<ISD::LoadExtType>(LoadSDNodeBits.ExtTy);
+  }
+
+  const SDValue &getBasePtr() const { return getOperand(1); }
+  const SDValue &getMask() const    { return getOperand(2); }
+  const SDValue &getVectorLength() const { return getOperand(3); }
+
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == ISD::EVL_LOAD;
+  }
+  bool isExpandingLoad() const { return LoadSDNodeBits.IsExpanding; }
+};
+
+/// This class is used to represent an MSTORE node
+class EVLStoreSDNode : public EVLLoadStoreSDNode {
+public:
+  friend class SelectionDAG;
+
+  EVLStoreSDNode(unsigned Order, const DebugLoc &dl, SDVTList VTs,
+                    bool isTrunc, EVT MemVT,
+                    MachineMemOperand *MMO)
+      : EVLLoadStoreSDNode(ISD::EVL_STORE, Order, dl, VTs, MemVT, MMO) {
+    StoreSDNodeBits.IsTruncating = isTrunc;
+    StoreSDNodeBits.IsCompressing = false;
+  }
+
+  /// Return true if the op does a truncation before store.
+  /// For integers this is the same as doing a TRUNCATE and storing the result.
+  /// For floats, it is the same as doing an FP_ROUND and storing the result.
+  bool isTruncatingStore() const { return StoreSDNodeBits.IsTruncating; }
+
+  /// Returns true if the op does a compression to the vector before storing.
+  /// The node contiguously stores the active elements (integers or floats)
+  /// in src (those with their respective bit set in writemask k) to unaligned
+  /// memory at base_addr.
+  bool isCompressingStore() const { return StoreSDNodeBits.IsCompressing; }
+
+  const SDValue &getValue() const   { return getOperand(1); }
+  const SDValue &getBasePtr() const { return getOperand(2); }
+  const SDValue &getMask() const    { return getOperand(3); }
+  const SDValue &getVectorLength() const    { return getOperand(4); }
+
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == ISD::EVL_STORE;
+  }
+};
+
+/// This base class is used to represent MLOAD and MSTORE nodes
 class MaskedLoadStoreSDNode : public MemSDNode {
 public:
   friend class SelectionDAG;
@@ -2225,6 +2381,67 @@ public:
     return N->getOpcode() == ISD::MSTORE;
   }
 };
+
+/// This is a base class used to represent
+/// EVL_GATHER and EVL_SCATTER nodes
+///
+class EVLGatherScatterSDNode : public MemSDNode {
+public:
+  friend class SelectionDAG;
+
+  EVLGatherScatterSDNode(ISD::NodeType NodeTy, unsigned Order,
+                            const DebugLoc &dl, SDVTList VTs, EVT MemVT,
+                            MachineMemOperand *MMO)
+      : MemSDNode(NodeTy, Order, dl, VTs, MemVT, MMO) {}
+
+  // In the both nodes address is Op1, mask is Op2:
+  // EVLGatherSDNode  (Chain, base, index, scale, mask, vlen)
+  // EVLScatterSDNode (Chain, value, base, index, sckae, mask, vlen)
+  // Mask is a vector of i1 elements
+  const SDValue &getBasePtr() const { return getOperand((getOpcode() == ISD::EVL_GATHER) ? 1 : 2); }
+  const SDValue &getIndex()   const { return getOperand((getOpcode() == ISD::EVL_GATHER) ? 2 : 3); }
+  const SDValue &getScale()   const { return getOperand((getOpcode() == ISD::EVL_GATHER) ? 3 : 4); }
+  const SDValue &getMask()    const { return getOperand((getOpcode() == ISD::EVL_GATHER) ? 4 : 5); }
+  const SDValue &getVectorLength()    const { return getOperand((getOpcode() == ISD::EVL_GATHER) ? 5 : 6); }
+
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == ISD::EVL_GATHER ||
+           N->getOpcode() == ISD::EVL_SCATTER;
+  }
+};
+
+/// This class is used to represent an EVL_GATHER node
+///
+class EVLGatherSDNode : public EVLGatherScatterSDNode {
+public:
+  friend class SelectionDAG;
+
+  EVLGatherSDNode(unsigned Order, const DebugLoc &dl, SDVTList VTs,
+                     EVT MemVT, MachineMemOperand *MMO)
+      : EVLGatherScatterSDNode(ISD::EVL_GATHER, Order, dl, VTs, MemVT, MMO) {}
+
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == ISD::EVL_GATHER;
+  }
+};
+
+/// This class is used to represent an EVL_SCATTER node
+///
+class EVLScatterSDNode : public EVLGatherScatterSDNode {
+public:
+  friend class SelectionDAG;
+
+  EVLScatterSDNode(unsigned Order, const DebugLoc &dl, SDVTList VTs,
+                      EVT MemVT, MachineMemOperand *MMO)
+      : EVLGatherScatterSDNode(ISD::EVL_SCATTER, Order, dl, VTs, MemVT, MMO) {}
+
+  const SDValue &getValue() const { return getOperand(1); }
+
+  static bool classof(const SDNode *N) {
+    return N->getOpcode() == ISD::EVL_SCATTER;
+  }
+};
+
 
 /// This is a base class used to represent
 /// MGATHER and MSCATTER nodes

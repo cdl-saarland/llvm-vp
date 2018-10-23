@@ -205,6 +205,150 @@ namespace llvm {
     /// @}
   };
 
+  class EVLIntrinsic : public IntrinsicInst {
+  public:
+    enum class EVLTypeToken : int8_t {
+      Scalar = 1, // scalar operand type
+      Vector = 2, // vectorized operand type
+      Mask = 3    // vector mask type
+    };
+
+    using TypeTokenVec = SmallVector<EVLTypeToken, 4>;
+    using ShortTypeVec = SmallVector<Type*, 4>;
+
+    struct
+    EVLIntrinsicDesc {
+      Intrinsic::ID ID; // LLVM Intrinsic ID.
+      TypeTokenVec typeTokens; // Type Parmeters for the LLVM Intrinsic.
+      int MaskPos; // Parameter index of the Mask parameter.
+      int EVLPos; // Parameter index of the EVL parameter.
+    };
+
+    // Translate this generic Opcode to an EVLIntrinsic
+    static EVLIntrinsicDesc GetEVLIntrinsicDesc(unsigned OC);
+
+    // Generate the disambiguating type vec for this EVL Intrinsic
+    static EVLIntrinsic::ShortTypeVec
+    EncodeTypeTokens(EVLIntrinsic::TypeTokenVec TTVec, Type & VectorTy, Type & ScalarTy);
+
+    bool isUnaryOp() const;
+    bool isBinaryOp() const;
+    bool isTernaryOp() const;
+
+    CmpInst::Predicate getCmpPredicate() const;
+
+    Value* getMask() const;
+    Value* getVectorLength() const;
+
+    // Methods for support type inquiry through isa, cast, and dyn_cast:
+    static bool classof(const IntrinsicInst *I) {
+      switch (I->getIntrinsicID()) {
+      default:
+        return false;
+
+      case Intrinsic::evl_cmp:
+
+      case Intrinsic::evl_and:
+      case Intrinsic::evl_or:
+      case Intrinsic::evl_xor:
+      case Intrinsic::evl_ashr:
+      case Intrinsic::evl_lshr:
+      case Intrinsic::evl_shl:
+
+      case Intrinsic::evl_select:
+      case Intrinsic::evl_compose:
+      case Intrinsic::evl_compress:
+      case Intrinsic::evl_expand:
+      case Intrinsic::evl_vshift:
+
+      case Intrinsic::evl_load:
+      case Intrinsic::evl_store:
+      case Intrinsic::evl_gather:
+      case Intrinsic::evl_scatter:
+
+      case Intrinsic::evl_fneg:
+
+      case Intrinsic::evl_fadd:
+      case Intrinsic::evl_fsub:
+      case Intrinsic::evl_fmul:
+      case Intrinsic::evl_fdiv:
+      case Intrinsic::evl_frem:
+
+      case Intrinsic::evl_fma:
+
+      case Intrinsic::evl_add:
+      case Intrinsic::evl_sub:
+      case Intrinsic::evl_mul:
+      case Intrinsic::evl_udiv:
+      case Intrinsic::evl_sdiv:
+      case Intrinsic::evl_urem:
+      case Intrinsic::evl_srem:
+
+      case Intrinsic::evl_reduce_add:
+      case Intrinsic::evl_reduce_mul:
+      case Intrinsic::evl_reduce_umin:
+      case Intrinsic::evl_reduce_umax:
+      case Intrinsic::evl_reduce_smin:
+      case Intrinsic::evl_reduce_smax:
+
+      case Intrinsic::evl_reduce_and:
+      case Intrinsic::evl_reduce_or:
+      case Intrinsic::evl_reduce_xor:
+
+      case Intrinsic::evl_reduce_fadd:
+      case Intrinsic::evl_reduce_fmul:
+      case Intrinsic::evl_reduce_fmin:
+      case Intrinsic::evl_reduce_fmax:
+        return true;
+      }
+    }
+    static bool classof(const Value *V) {
+      return isa<IntrinsicInst>(V) && classof(cast<IntrinsicInst>(V));
+    }
+
+    // Equivalent non-predicated opcode
+    unsigned getFunctionalOpcode() const {
+      switch (getIntrinsicID()) {
+        default: return Instruction::Call;
+
+      case Intrinsic::evl_cmp:
+        if (getArgOperand(0)->getType()->isFloatingPointTy()) {
+          return Instruction::FCmp;
+        } else {
+          return Instruction::ICmp;
+        }
+
+      case Intrinsic::evl_and:  return Instruction::And;
+      case Intrinsic::evl_or:   return Instruction::Or;
+      case Intrinsic::evl_xor:  return Instruction::Xor;
+      case Intrinsic::evl_ashr: return Instruction::AShr;
+      case Intrinsic::evl_lshr: return Instruction::LShr;
+      case Intrinsic::evl_shl:  return Instruction::Shl;
+
+      case Intrinsic::evl_select: return Instruction::Select;
+
+      case Intrinsic::evl_load:   return Instruction::Load;
+      case Intrinsic::evl_store:  return Instruction::Store;
+
+      case Intrinsic::evl_fneg:   return Instruction::FNeg;
+
+      case Intrinsic::evl_fadd:   return Instruction::FAdd;
+      case Intrinsic::evl_fsub:   return Instruction::FSub;
+      case Intrinsic::evl_fmul:   return Instruction::FMul;
+      case Intrinsic::evl_fdiv:   return Instruction::FDiv;
+      case Intrinsic::evl_frem:   return Instruction::FRem;
+
+      case Intrinsic::evl_add:    return Instruction::Add;
+      case Intrinsic::evl_sub:    return Instruction::Sub;
+      case Intrinsic::evl_mul:    return Instruction::Mul;
+      case Intrinsic::evl_udiv:   return Instruction::UDiv;
+      case Intrinsic::evl_sdiv:   return Instruction::SDiv;
+      case Intrinsic::evl_urem:   return Instruction::URem;
+      case Intrinsic::evl_srem:   return Instruction::SRem;
+      }
+    }
+  };
+
   /// This is the common base class for constrained floating point intrinsics.
   class ConstrainedFPIntrinsic : public IntrinsicInst {
   public:

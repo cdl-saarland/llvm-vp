@@ -23,6 +23,7 @@ add_llvm_library(LLVMCore
   DiagnosticPrinter.cpp
   Dominators.cpp
   DomTreeUpdater.cpp
+  EVLBuilder.cpp
   Function.cpp
   GVMaterializer.cpp
   Globals.cpp
@@ -47,6 +48,7 @@ add_llvm_library(LLVMCore
   PassManager.cpp
   PassRegistry.cpp
   PassTimingInfo.cpp
+  PredicatedInst.cpp
   SafepointIRVerifier.cpp
   ProfileSummary.cpp
   Statepoint.cpp
