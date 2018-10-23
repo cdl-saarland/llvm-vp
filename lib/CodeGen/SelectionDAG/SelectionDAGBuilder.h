@@ -954,6 +954,7 @@ private:
   void visitIntrinsicCall(const CallInst &I, unsigned Intrinsic);
   void visitTargetIntrinsic(const CallInst &I, unsigned Intrinsic);
   void visitConstrainedFPIntrinsic(const ConstrainedFPIntrinsic &FPI);
+  void visitExplicitVectorLengthIntrinsic(const EVLIntrinsic &EVLI);
 
   void visitVAStart(const CallInst &I);
   void visitVAArg(const VAArgInst &I);

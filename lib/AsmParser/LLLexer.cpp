@@ -643,6 +643,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(inlinehint);
   KEYWORD(inreg);
   KEYWORD(jumptable);
+  KEYWORD(mask);
   KEYWORD(minsize);
   KEYWORD(naked);
   KEYWORD(nest);
@@ -662,6 +663,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(optforfuzzing);
   KEYWORD(optnone);
   KEYWORD(optsize);
+  KEYWORD(passthru);
   KEYWORD(readnone);
   KEYWORD(readonly);
   KEYWORD(returned);
@@ -683,6 +685,7 @@ lltok::Kind LLLexer::LexIdentifier() {
   KEYWORD(swifterror);
   KEYWORD(swiftself);
   KEYWORD(uwtable);
+  KEYWORD(vlen);
   KEYWORD(writeonly);
   KEYWORD(zeroext);
   KEYWORD(immarg);
