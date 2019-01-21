@@ -641,6 +641,53 @@ public:
   }
 };
 
+// TODO port this to EVL nodes
+struct DAGMatchContext {
+  SelectionDAG & DAG;
+  SDValue MaskOp;
+  SDValue VectorLenOp;
+
+  DAGMatchContext(SelectionDAG & DAG, SDNode * Root)
+  : DAG(DAG)
+  , MaskOp()
+  , VectorLenOp()
+  {}
+
+  /// whether \p OpN is a node that is functionally compatible with the NodeType \p OpNodeTy
+  bool match(SDValue OpVal, unsigned OpNT) const {
+    // TODO compare mask and vlen
+    return OpVal.getOpcode() == OpNT;
+  }
+
+  // Specialize based on number of operands.
+  // TODO emit EVL intrinsics where MaskOp/VectorLenOp != null
+  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT) { return DAG.getNode(Opcode, DL, VT); }
+  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue Operand,
+                  const SDNodeFlags Flags = SDNodeFlags()) {
+    return DAG.getNode(Opcode, DL, VT, Operand, Flags);
+  }
+  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
+                  SDValue N2, const SDNodeFlags Flags = SDNodeFlags()) {
+    return DAG.getNode(Opcode, DL, VT, N1, N2, Flags);
+  }
+  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
+                  SDValue N2, SDValue N3,
+                  const SDNodeFlags Flags = SDNodeFlags()) {
+    return DAG.getNode(Opcode, DL, VT, N1, N2, N3);
+  }
+
+  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
+                  SDValue N2, SDValue N3, SDValue N4) {
+    return DAG.getNode(Opcode, DL, VT, N1, N2, N3, N4);
+  }
+
+  SDValue getNode(unsigned Opcode, const SDLoc &DL, EVT VT, SDValue N1,
+                  SDValue N2, SDValue N3, SDValue N4, SDValue N5) {
+    return DAG.getNode(Opcode, DL, VT, N1, N2, N3, N4, N5);
+  }
+};
+
+
 } // end anonymous namespace
 
 //===----------------------------------------------------------------------===//
@@ -10440,12 +10487,15 @@ static bool isContractable(SDNode *N) {
   return F.hasAllowContract() || F.hasAllowReassociation();
 }
 
+
 /// Try to perform FMA combining on a given FADD node.
 SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
   SDValue N0 = N->getOperand(0);
   SDValue N1 = N->getOperand(1);
   EVT VT = N->getValueType(0);
   SDLoc SL(N);
+
+  DAGMatchContext matcher(DAG, N);
 
   const TargetOptions &Options = DAG.getTarget().Options;
 
@@ -10479,8 +10529,8 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
 
   // Is the node an FMUL and contractable either due to global flags or
   // SDNodeFlags.
-  auto isContractableFMUL = [AllowFusionGlobally](SDValue N) {
-    if (N.getOpcode() != ISD::FMUL)
+  auto isContractableFMUL = [AllowFusionGlobally, &matcher](SDValue N) {
+    if (!matcher.match(N, ISD::FMUL))
       return false;
     return AllowFusionGlobally || isContractable(N.getNode());
   };
@@ -10493,14 +10543,14 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
 
   // fold (fadd (fmul x, y), z) -> (fma x, y, z)
   if (isContractableFMUL(N0) && (Aggressive || N0->hasOneUse())) {
-    return DAG.getNode(PreferredFusedOpcode, SL, VT,
+    return matcher.getNode(PreferredFusedOpcode, SL, VT,
                        N0.getOperand(0), N0.getOperand(1), N1, Flags);
   }
 
   // fold (fadd x, (fmul y, z)) -> (fma y, z, x)
   // Note: Commutes FADD operands.
   if (isContractableFMUL(N1) && (Aggressive || N1->hasOneUse())) {
-    return DAG.getNode(PreferredFusedOpcode, SL, VT,
+    return matcher.getNode(PreferredFusedOpcode, SL, VT,
                        N1.getOperand(0), N1.getOperand(1), N0, Flags);
   }
 
@@ -10511,10 +10561,10 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
     SDValue N00 = N0.getOperand(0);
     if (isContractableFMUL(N00) &&
         TLI.isFPExtFoldable(PreferredFusedOpcode, VT, N00.getValueType())) {
-      return DAG.getNode(PreferredFusedOpcode, SL, VT,
-                         DAG.getNode(ISD::FP_EXTEND, SL, VT,
+      return matcher.getNode(PreferredFusedOpcode, SL, VT,
+                         matcher.getNode(ISD::FP_EXTEND, SL, VT,
                                      N00.getOperand(0)),
-                         DAG.getNode(ISD::FP_EXTEND, SL, VT,
+                         matcher.getNode(ISD::FP_EXTEND, SL, VT,
                                      N00.getOperand(1)), N1, Flags);
     }
   }
@@ -10525,10 +10575,10 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
     SDValue N10 = N1.getOperand(0);
     if (isContractableFMUL(N10) &&
         TLI.isFPExtFoldable(PreferredFusedOpcode, VT, N10.getValueType())) {
-      return DAG.getNode(PreferredFusedOpcode, SL, VT,
-                         DAG.getNode(ISD::FP_EXTEND, SL, VT,
+      return matcher.getNode(PreferredFusedOpcode, SL, VT,
+                         matcher.getNode(ISD::FP_EXTEND, SL, VT,
                                      N10.getOperand(0)),
-                         DAG.getNode(ISD::FP_EXTEND, SL, VT,
+                         matcher.getNode(ISD::FP_EXTEND, SL, VT,
                                      N10.getOperand(1)), N0, Flags);
     }
   }
@@ -10540,9 +10590,9 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
         N0.getOpcode() == PreferredFusedOpcode &&
         N0.getOperand(2).getOpcode() == ISD::FMUL &&
         N0->hasOneUse() && N0.getOperand(2)->hasOneUse()) {
-      return DAG.getNode(PreferredFusedOpcode, SL, VT,
+      return matcher.getNode(PreferredFusedOpcode, SL, VT,
                          N0.getOperand(0), N0.getOperand(1),
-                         DAG.getNode(PreferredFusedOpcode, SL, VT,
+                         matcher.getNode(PreferredFusedOpcode, SL, VT,
                                      N0.getOperand(2).getOperand(0),
                                      N0.getOperand(2).getOperand(1),
                                      N1, Flags), Flags);
@@ -10553,9 +10603,9 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
         N1->getOpcode() == PreferredFusedOpcode &&
         N1.getOperand(2).getOpcode() == ISD::FMUL &&
         N1->hasOneUse() && N1.getOperand(2)->hasOneUse()) {
-      return DAG.getNode(PreferredFusedOpcode, SL, VT,
+      return matcher.getNode(PreferredFusedOpcode, SL, VT,
                          N1.getOperand(0), N1.getOperand(1),
-                         DAG.getNode(PreferredFusedOpcode, SL, VT,
+                         matcher.getNode(PreferredFusedOpcode, SL, VT,
                                      N1.getOperand(2).getOperand(0),
                                      N1.getOperand(2).getOperand(1),
                                      N0, Flags), Flags);
@@ -10567,10 +10617,10 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
     auto FoldFAddFMAFPExtFMul = [&] (
       SDValue X, SDValue Y, SDValue U, SDValue V, SDValue Z,
       SDNodeFlags Flags) {
-      return DAG.getNode(PreferredFusedOpcode, SL, VT, X, Y,
-                         DAG.getNode(PreferredFusedOpcode, SL, VT,
-                                     DAG.getNode(ISD::FP_EXTEND, SL, VT, U),
-                                     DAG.getNode(ISD::FP_EXTEND, SL, VT, V),
+      return matcher.getNode(PreferredFusedOpcode, SL, VT, X, Y,
+                         matcher.getNode(PreferredFusedOpcode, SL, VT,
+                                     matcher.getNode(ISD::FP_EXTEND, SL, VT, U),
+                                     matcher.getNode(ISD::FP_EXTEND, SL, VT, V),
                                      Z, Flags), Flags);
     };
     if (N0.getOpcode() == PreferredFusedOpcode) {
@@ -10594,12 +10644,12 @@ SDValue DAGCombiner::visitFADDForFMACombine(SDNode *N) {
     auto FoldFAddFPExtFMAFMul = [&] (
       SDValue X, SDValue Y, SDValue U, SDValue V, SDValue Z,
       SDNodeFlags Flags) {
-      return DAG.getNode(PreferredFusedOpcode, SL, VT,
-                         DAG.getNode(ISD::FP_EXTEND, SL, VT, X),
-                         DAG.getNode(ISD::FP_EXTEND, SL, VT, Y),
-                         DAG.getNode(PreferredFusedOpcode, SL, VT,
-                                     DAG.getNode(ISD::FP_EXTEND, SL, VT, U),
-                                     DAG.getNode(ISD::FP_EXTEND, SL, VT, V),
+      return matcher.getNode(PreferredFusedOpcode, SL, VT,
+                         matcher.getNode(ISD::FP_EXTEND, SL, VT, X),
+                         matcher.getNode(ISD::FP_EXTEND, SL, VT, Y),
+                         matcher.getNode(PreferredFusedOpcode, SL, VT,
+                                     matcher.getNode(ISD::FP_EXTEND, SL, VT, U),
+                                     matcher.getNode(ISD::FP_EXTEND, SL, VT, V),
                                      Z, Flags), Flags);
     };
     if (N0.getOpcode() == ISD::FP_EXTEND) {
@@ -17715,7 +17765,7 @@ SDValue DAGCombiner::visitVECTOR_SHUFFLE(SDNode *N) {
           NewMask.push_back(M < 0 ? -1 : Scale * M + s);
       return NewMask;
     };
-    
+
     SDValue BC0 = peekThroughOneUseBitcasts(N0);
     if (BC0.getOpcode() == ISD::VECTOR_SHUFFLE && BC0.hasOneUse()) {
       EVT SVT = VT.getScalarType();
