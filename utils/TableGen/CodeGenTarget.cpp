@@ -612,10 +612,10 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R) {
              "Expected iAny or vAny type");
     } else {
       VT = getValueType(TyEl->getValueAsDef("VT"));
-    }
-    if (MVT(VT).isOverloaded()) {
-      OverloadedVTs.push_back(VT);
-      isOverloaded = true;
+      if (MVT(VT).isOverloaded()) {
+        OverloadedVTs.push_back(VT);
+        isOverloaded = true;
+      }
     }
 
     // Reject invalid types.
@@ -651,13 +651,14 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R) {
                !TyEl->isSubClassOf("LLVMScalarOrSameVectorWidth")) ||
               VT == MVT::iAny || VT == MVT::vAny) &&
              "Expected iAny or vAny type");
-    } else
+    } else {
       VT = getValueType(TyEl->getValueAsDef("VT"));
-
-    if (MVT(VT).isOverloaded()) {
-      OverloadedVTs.push_back(VT);
-      isOverloaded = true;
+      if (MVT(VT).isOverloaded()) {
+        OverloadedVTs.push_back(VT);
+        isOverloaded = true;
+      }
     }
+
 
     // Reject invalid types.
     if (VT == MVT::isVoid && i != e-1 /*void at end means varargs*/)
