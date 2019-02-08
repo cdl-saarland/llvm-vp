@@ -53,7 +53,7 @@ class Type;
 class Value;
 class MDNode;
 class BinaryOperator;
-class EVLIntrinsic;
+class VPIntrinsic;
 namespace PatternMatch {
   struct PredicatedContext;
 }
@@ -270,9 +270,8 @@ Value *SimplifyBinOp(unsigned Opcode, Value *LHS, Value *RHS,
 /// Given a callsite, fold the result or return null.
 Value *SimplifyCall(CallBase *Call, const SimplifyQuery &Q);
 
-/// Given a function and iterators over arguments, fold the result or return
-/// null.
-Value *SimplifyEVLIntrinsic(EVLIntrinsic & EVLInst, const SimplifyQuery &Q);
+/// Given a VP intrinsic function, fold the result or return null.
+Value *SimplifyVPIntrinsic(VPIntrinsic & VPInst, const SimplifyQuery &Q);
 
 /// See if we can compute a simplified version of this instruction. If not,
 /// return null.
