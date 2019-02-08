@@ -381,7 +381,7 @@ private:
   SDValue PromoteIntOp_PREFETCH(SDNode *N, unsigned OpNo);
   SDValue PromoteIntOp_MULFIX(SDNode *N);
   SDValue PromoteIntOp_FPOWI(SDNode *N);
-  SDValue PromoteIntOp_EVL(SDNode *N, unsigned OpNo);
+  SDValue PromoteIntOp_VP(SDNode *N, unsigned OpNo);
 
   void PromoteSetCCOperands(SDValue &LHS,SDValue &RHS, ISD::CondCode Code);
 

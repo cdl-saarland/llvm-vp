@@ -419,7 +419,7 @@ public:
   Instruction *visitVAStartInst(VAStartInst &I);
   Instruction *visitVACopyInst(VACopyInst &I);
 
-  // Entry point to EVLIntrinsic
+  // Entry point to VPIntrinsic
   Instruction *visitPredicatedInstruction(PredicatedInstruction * PI) {
     switch (PI->getOpcode()) {
       default:
