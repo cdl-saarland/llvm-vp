@@ -6834,7 +6834,29 @@ void SelectionDAGBuilder::visitCmpVP(const VPIntrinsic &I) {
 
 void
 SelectionDAGBuilder::visitMinMaxVP(const VPIntrinsic & VPInst) {
-  abort(); // TODO expand to compare + select // UGT, OGT?
+  // FIXME by abuse of notation 'afn' is interpreted as unordered
+  bool UnorderedFPCompare = VPInst.getFastMathFlags().approxFunc();
+
+  unsigned Predicate;
+  switch (VPInst.getIntrinsicID()) {
+    default:
+      llvm_unreachable("not a min/max intrinsic!");
+
+    case Intrinsic::vp_fmin:
+      Predicate = UnorderedFPCompare ? FCmpInst::FCMP_ULT : FCmpInst::FCMP_OLT;
+      break;
+
+    case Intrinsic::vp_fmax:
+      Predicate = UnorderedFPCompare ? FCmpInst::FCMP_UGT : FCmpInst::FCMP_OGT;
+      break;
+
+    case Intrinsic::vp_smin: Predicate = ICmpInst::ICMP_SLT; break;
+    case Intrinsic::vp_smax: Predicate = ICmpInst::ICMP_SGT; break;
+    case Intrinsic::vp_umin: Predicate = ICmpInst::ICMP_ULT; break;
+    case Intrinsic::vp_umax: Predicate = ICmpInst::ICMP_UGT; break;
+  }
+
+  llvm_unreachable("TODO lower to compare + select");
 }
 
 void
@@ -6856,7 +6878,6 @@ SelectionDAGBuilder::visitReductionVP(const VPIntrinsic & VPInst) {
     case Intrinsic::vp_smin: Opcode = ISD::VP_REDUCE_SMIN; break;
   }
 
-
   SmallVector<EVT, 4> ValueVTs;
   const TargetLowering &TLI = DAG.getTargetLoweringInfo();
   ComputeValueVTs(TLI, DAG.getDataLayout(), VPInst.getType(), ValueVTs);
@@ -6864,12 +6885,11 @@ SelectionDAGBuilder::visitReductionVP(const VPIntrinsic & VPInst) {
 
   // ValueVTs.push_back(MVT::Other); // Out chain
 
-
   SDValue Result = DAG.getNode(Opcode, sdl, VTs,
-                   { getValue(VPInst.getArgOperand(0)),
-                     getValue(VPInst.getArgOperand(1)),
+                   { getValue(VPInst.getArgOperand(1)),
                      getValue(VPInst.getArgOperand(2)),
-                     getValue(VPInst.getArgOperand(3)) });
+                     getValue(VPInst.getArgOperand(3)),
+                     getValue(VPInst.getArgOperand(4)) });
   setValue(&VPInst, Result);
 }
 

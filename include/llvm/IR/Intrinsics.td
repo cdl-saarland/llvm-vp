@@ -1151,6 +1151,7 @@ let IntrProperties = [IntrNoMem, Mask<2>, VectorLength<3>] in {
                                 LLVMMatchType<0>,
                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                 llvm_i32_ty]>;
+
   def int_vp_smin : Intrinsic<[ llvm_anyvector_ty ],
                               [ LLVMMatchType<0>,
                                 LLVMMatchType<0>,
