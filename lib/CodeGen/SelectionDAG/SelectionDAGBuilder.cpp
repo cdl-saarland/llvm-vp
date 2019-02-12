@@ -6863,7 +6863,7 @@ void
 SelectionDAGBuilder::visitReductionVP(const VPIntrinsic & VPInst) {
   SDLoc sdl = getCurSDLoc();
 
-  assert(VPInst.isReduction());
+  assert(VPInst.isReductionOp());
   Intrinsic::ID OperatorID = VPInst.getReductionOperator();
   unsigned Opcode;
   switch (OperatorID) {
