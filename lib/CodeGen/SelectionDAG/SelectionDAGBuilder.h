@@ -936,12 +936,14 @@ private:
   const char *visitIntrinsicCall(const CallInst &I, unsigned Intrinsic);
   void visitTargetIntrinsic(const CallInst &I, unsigned Intrinsic);
   void visitConstrainedFPIntrinsic(const ConstrainedFPIntrinsic &FPI);
-  void visitExplicitVectorLengthIntrinsic(const VPIntrinsic &VPI);
-  void visitCmpVP(const VPIntrinsic &I);
+  void visitVectorPredicationIntrinsic(const VPIntrinsic &VPI);
   void visitLoadVP(const CallInst &I);
   void visitStoreVP(const CallInst &I);
   void visitGatherVP(const CallInst &I);
   void visitScatterVP(const CallInst &I);
+  void visitCmpVP(const VPIntrinsic &I);
+  void visitMinMaxVP(const VPIntrinsic & VPInst);
+  void visitReductionVP(const VPIntrinsic & VPInst);
 
   void visitVAStart(const CallInst &I);
   void visitVAArg(const VAArgInst &I);

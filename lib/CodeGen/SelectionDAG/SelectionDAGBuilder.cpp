@@ -5979,24 +5979,17 @@ SelectionDAGBuilder::visitIntrinsicCall(const CallInst &I, unsigned Intrinsic) {
   case Intrinsic::vp_urem:
   case Intrinsic::vp_srem:
 
+  case Intrinsic::vp_fmin:
+  case Intrinsic::vp_fmax:
+  case Intrinsic::vp_smin:
+  case Intrinsic::vp_smax:
+  case Intrinsic::vp_umin:
+  case Intrinsic::vp_umax:
+
   case Intrinsic::vp_cmp:
 
-  case Intrinsic::vp_reduce_and:
-  case Intrinsic::vp_reduce_or:
-  case Intrinsic::vp_reduce_xor:
-
-  case Intrinsic::vp_reduce_fadd:
-  case Intrinsic::vp_reduce_fmax:
-  case Intrinsic::vp_reduce_fmin:
-  case Intrinsic::vp_reduce_fmul:
-
-  case Intrinsic::vp_reduce_add:
-  case Intrinsic::vp_reduce_mul:
-  case Intrinsic::vp_reduce_umax:
-  case Intrinsic::vp_reduce_umin:
-  case Intrinsic::vp_reduce_smax:
-  case Intrinsic::vp_reduce_smin:
-    visitExplicitVectorLengthIntrinsic(cast<VPIntrinsic>(I));
+  case Intrinsic::vp_reduce:
+    visitVectorPredicationIntrinsic(cast<VPIntrinsic>(I));
     return nullptr;
 
   case Intrinsic::fmuladd: {
@@ -6839,7 +6832,48 @@ void SelectionDAGBuilder::visitCmpVP(const VPIntrinsic &I) {
   setValue(&I, DAG.getSetCC(getCurSDLoc(), DestVT, Op1, Op2, Condition));
 }
 
-void SelectionDAGBuilder::visitExplicitVectorLengthIntrinsic(
+void
+SelectionDAGBuilder::visitMinMaxVP(const VPIntrinsic & VPInst) {
+  abort(); // TODO expand to compare + select // UGT, OGT?
+}
+
+void
+SelectionDAGBuilder::visitReductionVP(const VPIntrinsic & VPInst) {
+  SDLoc sdl = getCurSDLoc();
+
+  assert(VPInst.isReduction());
+  Intrinsic::ID OperatorID = VPInst.getReductionOperator();
+  unsigned Opcode;
+  switch (OperatorID) {
+    default:
+      llvm_unreachable("Invalid reduction operator!");
+
+    case Intrinsic::vp_fmax: Opcode = ISD::VP_REDUCE_FMAX; break;
+    case Intrinsic::vp_fmin: Opcode = ISD::VP_REDUCE_FMIN; break;
+    case Intrinsic::vp_umax: Opcode = ISD::VP_REDUCE_UMAX; break;
+    case Intrinsic::vp_umin: Opcode = ISD::VP_REDUCE_UMIN; break;
+    case Intrinsic::vp_smax: Opcode = ISD::VP_REDUCE_SMAX; break;
+    case Intrinsic::vp_smin: Opcode = ISD::VP_REDUCE_SMIN; break;
+  }
+
+
+  SmallVector<EVT, 4> ValueVTs;
+  const TargetLowering &TLI = DAG.getTargetLoweringInfo();
+  ComputeValueVTs(TLI, DAG.getDataLayout(), VPInst.getType(), ValueVTs);
+  SDVTList VTs = DAG.getVTList(ValueVTs);
+
+  // ValueVTs.push_back(MVT::Other); // Out chain
+
+
+  SDValue Result = DAG.getNode(Opcode, sdl, VTs,
+                   { getValue(VPInst.getArgOperand(0)),
+                     getValue(VPInst.getArgOperand(1)),
+                     getValue(VPInst.getArgOperand(2)),
+                     getValue(VPInst.getArgOperand(3)) });
+  setValue(&VPInst, Result);
+}
+
+void SelectionDAGBuilder::visitVectorPredicationIntrinsic(
     const VPIntrinsic & VPInst) {
   SDLoc sdl = getCurSDLoc();
   unsigned Opcode;
@@ -6884,17 +6918,19 @@ void SelectionDAGBuilder::visitExplicitVectorLengthIntrinsic(
   case Intrinsic::vp_expand: Opcode = ISD::VP_EXPAND; break;
   case Intrinsic::vp_vshift: Opcode = ISD::VP_VSHIFT; break;
 
-  case Intrinsic::vp_reduce_and: Opcode = ISD::VP_REDUCE_AND; break;
-  case Intrinsic::vp_reduce_or: Opcode = ISD::VP_REDUCE_OR; break;
-  case Intrinsic::vp_reduce_xor: Opcode = ISD::VP_REDUCE_XOR; break;
-  case Intrinsic::vp_reduce_add: Opcode = ISD::VP_REDUCE_ADD; break;
-  case Intrinsic::vp_reduce_mul: Opcode = ISD::VP_REDUCE_MUL; break;
-  case Intrinsic::vp_reduce_fadd: Opcode = ISD::VP_REDUCE_FADD; break;
-  case Intrinsic::vp_reduce_fmul: Opcode = ISD::VP_REDUCE_FMUL; break;
-  case Intrinsic::vp_reduce_smax: Opcode = ISD::VP_REDUCE_SMAX; break;
-  case Intrinsic::vp_reduce_smin: Opcode = ISD::VP_REDUCE_SMIN; break;
-  case Intrinsic::vp_reduce_umax: Opcode = ISD::VP_REDUCE_UMAX; break;
-  case Intrinsic::vp_reduce_umin: Opcode = ISD::VP_REDUCE_UMIN; break;
+  case Intrinsic::vp_smax:
+  case Intrinsic::vp_smin:
+  case Intrinsic::vp_umax:
+  case Intrinsic::vp_umin:
+  case Intrinsic::vp_fmax:
+  case Intrinsic::vp_fmin:
+    visitMinMaxVP(VPInst);
+    return;
+
+  case Intrinsic::vp_reduce:
+    visitReductionVP(VPInst);
+    return;
+
   }
 
   // TODO memory evl: SDValue Chain = getRoot();

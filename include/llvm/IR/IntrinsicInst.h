@@ -234,12 +234,25 @@ namespace llvm {
     bool isUnaryOp() const;
     bool isBinaryOp() const;
     bool isTernaryOp() const;
-    bool isReductionOp() const;
+    bool isReductionOp() const { return getIntrinsicID() == Intrinsic::vp_reduce; }
+
+    Intrinsic::ID getReductionOperator() const;
 
     CmpInst::Predicate getCmpPredicate() const;
 
+    /// Whether the vector length parameter is enabled.
+    /// this implies that the vector length parameter is non-negative.
+    bool hasExplicitVectorLength() const;
+
+    /// The mask parameter (or null if n/a).
     Value* getMask() const;
+
+    // The explicit vector length parameter (or null if n/a).
     Value* getVectorLength() const;
+
+    /// whether the intrinsic \p ID would be a legal reduction operator for llvm.vp.reduce
+    static bool
+    IsLegalReductionOperator(Intrinsic::ID ID);
 
     // Methods for support type inquiry through isa, cast, and dyn_cast:
     static bool classof(const IntrinsicInst *I) {
@@ -285,21 +298,7 @@ namespace llvm {
       case Intrinsic::vp_urem:
       case Intrinsic::vp_srem:
 
-      case Intrinsic::vp_reduce_add:
-      case Intrinsic::vp_reduce_mul:
-      case Intrinsic::vp_reduce_umin:
-      case Intrinsic::vp_reduce_umax:
-      case Intrinsic::vp_reduce_smin:
-      case Intrinsic::vp_reduce_smax:
-
-      case Intrinsic::vp_reduce_and:
-      case Intrinsic::vp_reduce_or:
-      case Intrinsic::vp_reduce_xor:
-
-      case Intrinsic::vp_reduce_fadd:
-      case Intrinsic::vp_reduce_fmul:
-      case Intrinsic::vp_reduce_fmin:
-      case Intrinsic::vp_reduce_fmax:
+      case Intrinsic::vp_reduce:
         return true;
       }
     }

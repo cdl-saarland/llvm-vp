@@ -142,6 +142,39 @@ VPIntrinsic::getCmpPredicate() const {
   return static_cast<CmpInst::Predicate>(cast<ConstantInt>(getArgOperand(4))->getZExtValue());
 }
 
+bool
+VPIntrinsic::IsLegalReductionOperator(Intrinsic::ID ID) {
+  switch (ID) {
+    default:
+      return false;
+
+    case Intrinsic::vp_fadd:
+    case Intrinsic::vp_fmul:
+    case Intrinsic::vp_fmin:
+    case Intrinsic::vp_fmax:
+
+    case Intrinsic::vp_add:
+    case Intrinsic::vp_mul:
+    case Intrinsic::vp_smin:
+    case Intrinsic::vp_smax:
+    case Intrinsic::vp_umin:
+    case Intrinsic::vp_umax:
+
+    case Intrinsic::vp_and:
+    case Intrinsic::vp_or:
+    case Intrinsic::vp_xor:
+
+      return true;
+  }
+}
+
+Intrinsic::ID
+VPIntrinsic::getReductionOperator() const {
+  if (!isReduction()) return Intrinsic::not_intrinsic;
+  auto * RedFunc = getArgOperand(0);
+  auto * RedIntrin = cast<VPIntrinsic>(RedFunc);
+}
+
 bool VPIntrinsic::isUnaryOp() const {
   switch (getIntrinsicID()) {
     default:
@@ -211,19 +244,13 @@ bool VPIntrinsic::isBinaryOp() const {
     case Intrinsic::vp_fdiv:
     case Intrinsic::vp_frem:
 
-    case Intrinsic::vp_reduce_or:
-    case Intrinsic::vp_reduce_xor:
-    case Intrinsic::vp_reduce_add:
-    case Intrinsic::vp_reduce_mul:
-    case Intrinsic::vp_reduce_smax:
-    case Intrinsic::vp_reduce_smin:
-    case Intrinsic::vp_reduce_umax:
-    case Intrinsic::vp_reduce_umin:
+    case Intrinsic::vp_fmax:
+    case Intrinsic::vp_fmin:
 
-    case Intrinsic::vp_reduce_fadd:
-    case Intrinsic::vp_reduce_fmul:
-    case Intrinsic::vp_reduce_fmax:
-    case Intrinsic::vp_reduce_fmin:
+    case Intrinsic::vp_smin:
+    case Intrinsic::vp_smax:
+    case Intrinsic::vp_umin:
+    case Intrinsic::vp_umax:
 
     case Intrinsic::vp_add:
     case Intrinsic::vp_sub:

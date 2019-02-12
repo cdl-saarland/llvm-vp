@@ -455,6 +455,7 @@ private:
   void visitShuffleVectorInst(ShuffleVectorInst &EI);
   void visitVAArgInst(VAArgInst &VAA) { visitInstruction(VAA); }
   void visitCallInst(CallInst &CI);
+  void visitVPIntrinsic(VPIntrinsic &VPI);
   void visitInvokeInst(InvokeInst &II);
   void visitGetElementPtrInst(GetElementPtrInst &GEP);
   void visitLoadInst(LoadInst &LI);
@@ -3063,8 +3064,59 @@ void Verifier::verifyMustTailCall(CallInst &CI) {
          "musttail call result must be returned", Ret);
 }
 
+void
+Verifier::visitVPIntrinsic(VPIntrinsic &VPI) {
+  if (!VPI.isReduction()) {
+    return;
+  }
+
+  auto * RedFuncArg = VPI.getArgOperand(0);
+  auto * RedFuncTy = dyn_cast<FunctionType>(RedFuncArg->getType());
+  Assert(
+      RedFuncTy,
+      "The reduction operator parameter has to be a named function",
+      &VPI);
+
+  const auto *RedFunc = cast<const Function>(RedFuncArg);
+  Intrinsic::ID RedIntrinID = RedFunc->getIntrinsicID();
+  Assert(
+      VPIntrinsic::IsLegalReductionOperator(RedIntrinID),
+      "The reduction operator is unsupported",
+      &VPI);
+
+// reduct operator type signature check
+// (T, T) --> T
+  Assert(
+      RedFuncTy->getReturnType() == VPI.getType(),
+      "The return type of the reduction operator has to be the return type of the reduction",
+      &VPI);
+
+  Assert(
+      (RedFuncTy->getParamType(0) == VPI.getType() &&
+          RedFuncTy->getParamType(1) == VPI.getType()),
+      "The operand data type of the reduction operator has to be the return type of the reduction",
+      &VPI);
+
+// VPI arg check
+  Assert(
+      VPI.getArgOperand(1)->getType() == VPI.getType(),
+      "The type of the initial vlaue has to be the return type of the reduction",
+      &VPI);
+
+  auto * VectorArg = VPI.getArgOperand(2);
+  Assert(
+      cast<VectorType>(VectorArg->getType())->getElementType() == VPI.getType(),
+      "The vector element type of the reduced vector has to be the return type of the reduction",
+      &VPI);
+}
+
 void Verifier::visitCallInst(CallInst &CI) {
   visitCallBase(CI);
+
+  auto * VPI = dyn_cast<VPIntrinsic>(&CI);
+  if (VPI) {
+    visitVPIntrinsic(*VPI);
+  }
 
   if (CI.isMustTailCall())
     verifyMustTailCall(CI);
