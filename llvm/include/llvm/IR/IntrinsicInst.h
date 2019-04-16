@@ -205,6 +205,22 @@ namespace llvm {
     /// @}
   };
 
+  enum class RoundingMode : uint8_t {
+    rmInvalid,
+    rmDynamic,
+    rmToNearest,
+    rmDownward,
+    rmUpward,
+    rmTowardZero
+  };
+
+  enum class ExceptionBehavior : uint8_t {
+    ebInvalid,
+    ebIgnore,
+    ebMayTrap,
+    ebStrict
+  };
+
   class VPIntrinsic : public IntrinsicInst {
   public:
     enum class VPTypeToken : int8_t {
@@ -224,22 +240,34 @@ namespace llvm {
       int EVLPos; // Parameter index of the VP parameter.
     };
 
-    // Translate this generic Opcode to an EVLIntrinsic
+    // Translate this generic Opcode to a VPIntrinsic
     static VPIntrinsicDesc GetVPIntrinsicDesc(unsigned OC);
+    // Translate this non-VP intrinsic to a VPIntrinsic.
+    static VPIntrinsicDesc GetVPDescForIntrinsic(unsigned IntrinsicID);
 
     // Generate the disambiguating type vec for this VP Intrinsic
     static VPIntrinsic::ShortTypeVec
     EncodeTypeTokens(VPIntrinsic::TypeTokenVec TTVec, Type & VectorTy, Type & ScalarTy);
 
+    // available for all VP intrinsics
+    Value* getMask() const;
+    Value* getVectorLength() const;
+
     bool isUnaryOp() const;
     bool isBinaryOp() const;
     bool isTernaryOp() const;
-    bool isReductionOp() const;
 
+    // compare intrinsic
+    bool isCompareOp() const { return getIntrinsicID() == Intrinsic::vp_cmp; }
     CmpInst::Predicate getCmpPredicate() const;
 
-    Value* getMask() const;
-    Value* getVectorLength() const;
+    // llvm.vp.constrained.*
+    bool isConstrainedOp() const;
+    Optional<RoundingMode> getRoundingMode() const;
+    Optional<ExceptionBehavior> getExceptionBehavior() const;
+
+    // llvm.vp.reduction.*
+    bool isReductionOp() const;
 
     // Methods for support type inquiry through isa, cast, and dyn_cast:
     static bool classof(const IntrinsicInst *I) {
@@ -300,6 +328,31 @@ namespace llvm {
       case Intrinsic::vp_reduce_fmul:
       case Intrinsic::vp_reduce_fmin:
       case Intrinsic::vp_reduce_fmax:
+
+      case Intrinsic::vp_constrained_fadd:
+      case Intrinsic::vp_constrained_fsub:
+      case Intrinsic::vp_constrained_fmul:
+      case Intrinsic::vp_constrained_fdiv:
+      case Intrinsic::vp_constrained_frem:
+      case Intrinsic::vp_constrained_fma:
+      case Intrinsic::vp_constrained_sqrt:
+      case Intrinsic::vp_constrained_pow:
+      case Intrinsic::vp_constrained_powi:
+      case Intrinsic::vp_constrained_sin:
+      case Intrinsic::vp_constrained_cos:
+      case Intrinsic::vp_constrained_exp:
+      case Intrinsic::vp_constrained_exp2:
+      case Intrinsic::vp_constrained_log:
+      case Intrinsic::vp_constrained_log10:
+      case Intrinsic::vp_constrained_log2:
+      case Intrinsic::vp_constrained_rint:
+      case Intrinsic::vp_constrained_nearbyint:
+      case Intrinsic::vp_constrained_maxnum:
+      case Intrinsic::vp_constrained_minnum:
+      case Intrinsic::vp_constrained_ceil:
+      case Intrinsic::vp_constrained_floor:
+      case Intrinsic::vp_constrained_round:
+      case Intrinsic::vp_constrained_trunc:
         return true;
       }
     }
@@ -353,25 +406,6 @@ namespace llvm {
   /// This is the common base class for constrained floating point intrinsics.
   class ConstrainedFPIntrinsic : public IntrinsicInst {
   public:
-    /// Specifies the rounding mode to be assumed. This is only used when
-    /// when constrained floating point is enabled. See the LLVM Language
-    /// Reference Manual for details.
-    enum RoundingMode : uint8_t {
-      rmDynamic,         ///< This corresponds to "fpround.dynamic".
-      rmToNearest,       ///< This corresponds to "fpround.tonearest".
-      rmDownward,        ///< This corresponds to "fpround.downward".
-      rmUpward,          ///< This corresponds to "fpround.upward".
-      rmTowardZero       ///< This corresponds to "fpround.tozero".
-    };
-
-    /// Specifies the required exception behavior. This is only used when
-    /// when constrained floating point is used. See the LLVM Language
-    /// Reference Manual for details.
-    enum ExceptionBehavior : uint8_t {
-      ebIgnore,          ///< This corresponds to "fpexcept.ignore".
-      ebMayTrap,         ///< This corresponds to "fpexcept.maytrap".
-      ebStrict           ///< This corresponds to "fpexcept.strict".
-    };
 
     bool isUnaryOp() const;
     bool isTernaryOp() const;
