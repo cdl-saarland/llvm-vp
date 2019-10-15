@@ -549,6 +549,7 @@ BEGIN_TWO_BYTE_PACK()
   class LSBaseSDNodeBitfields {
     friend class LSBaseSDNode;
     friend class MaskedGatherScatterSDNode;
+    friend class VPGatherScatterSDNode;
 
     uint16_t : NumMemSDNodeBits;
 
@@ -2539,12 +2540,28 @@ public:
 
   VPGatherScatterSDNode(ISD::NodeType NodeTy, unsigned Order,
                             const DebugLoc &dl, SDVTList VTs, EVT MemVT,
-                            MachineMemOperand *MMO)
-      : MemSDNode(NodeTy, Order, dl, VTs, MemVT, MMO) {}
+                            MachineMemOperand *MMO, ISD::MemIndexType IndexType)
+      : MemSDNode(NodeTy, Order, dl, VTs, MemVT, MMO) {
+    LSBaseSDNodeBits.AddressingMode = IndexType;
+    assert(getIndexType() == IndexType && "Value truncated");
+  }
+
+  /// How is Index applied to BasePtr when computing addresses.
+  ISD::MemIndexType getIndexType() const {
+    return static_cast<ISD::MemIndexType>(LSBaseSDNodeBits.AddressingMode);
+  }
+  bool isIndexScaled() const {
+    return (getIndexType() == ISD::SIGNED_SCALED) ||
+           (getIndexType() == ISD::UNSIGNED_SCALED);
+  }
+  bool isIndexSigned() const {
+    return (getIndexType() == ISD::SIGNED_SCALED) ||
+           (getIndexType() == ISD::SIGNED_UNSCALED);
+  }
 
   // In the both nodes address is Op1, mask is Op2:
   // VPGatherSDNode  (Chain, base, index, scale, mask, vlen)
-  // VPScatterSDNode (Chain, value, base, index, sckae, mask, vlen)
+  // VPScatterSDNode (Chain, value, base, index, scale, mask, vlen)
   // Mask is a vector of i1 elements
   const SDValue &getBasePtr() const { return getOperand((getOpcode() == ISD::VP_GATHER) ? 1 : 2); }
   const SDValue &getIndex()   const { return getOperand((getOpcode() == ISD::VP_GATHER) ? 2 : 3); }
@@ -2565,8 +2582,9 @@ public:
   friend class SelectionDAG;
 
   VPGatherSDNode(unsigned Order, const DebugLoc &dl, SDVTList VTs,
-                     EVT MemVT, MachineMemOperand *MMO)
-      : VPGatherScatterSDNode(ISD::VP_GATHER, Order, dl, VTs, MemVT, MMO) {}
+                     EVT MemVT, MachineMemOperand *MMO,
+                     ISD::MemIndexType IndexType)
+      : VPGatherScatterSDNode(ISD::VP_GATHER, Order, dl, VTs, MemVT, MMO, IndexType) {}
 
   static bool classof(const SDNode *N) {
     return N->getOpcode() == ISD::VP_GATHER;
@@ -2580,8 +2598,9 @@ public:
   friend class SelectionDAG;
 
   VPScatterSDNode(unsigned Order, const DebugLoc &dl, SDVTList VTs,
-                      EVT MemVT, MachineMemOperand *MMO)
-      : VPGatherScatterSDNode(ISD::VP_SCATTER, Order, dl, VTs, MemVT, MMO) {}
+                      EVT MemVT, MachineMemOperand *MMO,
+                      ISD::MemIndexType IndexType)
+      : VPGatherScatterSDNode(ISD::VP_SCATTER, Order, dl, VTs, MemVT, MMO, IndexType) {}
 
   const SDValue &getValue() const { return getOperand(1); }
 

@@ -7153,34 +7153,6 @@ SDValue SelectionDAG::getIndexedStore(SDValue OrigStore, const SDLoc &dl,
   return V;
 }
 
-SDValue SelectionDAG::getLoadVP(EVT VT, const SDLoc &dl, SDValue Chain,
-                                    SDValue Ptr, SDValue Mask, SDValue VLen,
-                                    EVT MemVT, MachineMemOperand *MMO,
-                                    ISD::LoadExtType ExtTy) {
-  SDVTList VTs = getVTList(VT, MVT::Other);
-  SDValue Ops[] = { Chain, Ptr, Mask, VLen };
-  FoldingSetNodeID ID;
-  AddNodeIDNode(ID, ISD::VP_LOAD, VTs, Ops);
-  ID.AddInteger(VT.getRawBits());
-  ID.AddInteger(getSyntheticNodeSubclassData<VPLoadSDNode>(
-      dl.getIROrder(), VTs, ExtTy, MemVT, MMO));
-  ID.AddInteger(MMO->getPointerInfo().getAddrSpace());
-  void *IP = nullptr;
-  if (SDNode *E = FindNodeOrInsertPos(ID, dl, IP)) {
-    cast<VPLoadSDNode>(E)->refineAlignment(MMO);
-    return SDValue(E, 0);
-  }
-  auto *N = newSDNode<VPLoadSDNode>(dl.getIROrder(), dl.getDebugLoc(), VTs,
-                                        ExtTy, MemVT, MMO);
-  createOperands(N, Ops);
-
-  CSEMap.InsertNode(N, IP);
-  InsertNode(N);
-  SDValue V(N, 0);
-  NewSDValueDbgMsg(V, "Creating new node: ", this);
-  return V;
-}
-
 SDValue SelectionDAG::getMaskedLoad(EVT VT, const SDLoc &dl, SDValue Chain,
                                     SDValue Ptr, SDValue Mask, SDValue PassThru,
                                     EVT MemVT, MachineMemOperand *MMO,
@@ -7209,18 +7181,46 @@ SDValue SelectionDAG::getMaskedLoad(EVT VT, const SDLoc &dl, SDValue Chain,
   return V;
 }
 
+SDValue SelectionDAG::getLoadVP(EVT VT, const SDLoc &dl, SDValue Chain,
+                                    SDValue Ptr, SDValue Mask, SDValue VLen, 
+                                    EVT MemVT, MachineMemOperand *MMO,
+                                    ISD::LoadExtType ExtTy) {
+  SDVTList VTs = getVTList(VT, MVT::Other);
+  SDValue Ops[] = { Chain, Ptr, Mask, VLen };
+  FoldingSetNodeID ID;
+  AddNodeIDNode(ID, ISD::VP_LOAD, VTs, Ops);
+  ID.AddInteger(VT.getRawBits());
+  ID.AddInteger(getSyntheticNodeSubclassData<VPLoadSDNode>(
+      dl.getIROrder(), VTs, ExtTy, MemVT, MMO));
+  ID.AddInteger(MMO->getPointerInfo().getAddrSpace());
+  void *IP = nullptr;
+  if (SDNode *E = FindNodeOrInsertPos(ID, dl, IP)) {
+    cast<VPLoadSDNode>(E)->refineAlignment(MMO);
+    return SDValue(E, 0);
+  }
+  auto *N = newSDNode<VPLoadSDNode>(dl.getIROrder(), dl.getDebugLoc(), VTs,
+                                        ExtTy, MemVT, MMO);
+  createOperands(N, Ops);
+
+  CSEMap.InsertNode(N, IP);
+  InsertNode(N);
+  SDValue V(N, 0);
+  NewSDValueDbgMsg(V, "Creating new node: ", this);
+  return V;
+}
+
+
 SDValue SelectionDAG::getStoreVP(SDValue Chain, const SDLoc &dl,
                                      SDValue Val, SDValue Ptr, SDValue Mask,
-                                     SDValue VLen, EVT MemVT, MachineMemOperand *MMO,
+				     SDValue VLen, EVT MemVT, MachineMemOperand *MMO,
                                      bool IsTruncating) {
   assert(Chain.getValueType() == MVT::Other &&
         "Invalid chain type");
-  EVT VT = Val.getValueType();
   SDVTList VTs = getVTList(MVT::Other);
   SDValue Ops[] = { Chain, Val, Ptr, Mask, VLen };
   FoldingSetNodeID ID;
-  AddNodeIDNode(ID, ISD::VP_STORE, VTs, Ops);
-  ID.AddInteger(VT.getRawBits());
+  AddNodeIDNode(ID, ISD::MSTORE, VTs, Ops);
+  ID.AddInteger(MemVT.getRawBits());
   ID.AddInteger(getSyntheticNodeSubclassData<VPStoreSDNode>(
       dl.getIROrder(), VTs, IsTruncating, MemVT, MMO));
   ID.AddInteger(MMO->getPointerInfo().getAddrSpace());
@@ -7242,14 +7242,15 @@ SDValue SelectionDAG::getStoreVP(SDValue Chain, const SDLoc &dl,
 
 SDValue SelectionDAG::getGatherVP(SDVTList VTs, EVT VT, const SDLoc &dl,
                                       ArrayRef<SDValue> Ops,
-                                      MachineMemOperand *MMO) {
+                                      MachineMemOperand *MMO,
+	                              ISD::MemIndexType IndexType) {
   assert(Ops.size() == 6 && "Incompatible number of operands");
 
   FoldingSetNodeID ID;
   AddNodeIDNode(ID, ISD::VP_GATHER, VTs, Ops);
   ID.AddInteger(VT.getRawBits());
   ID.AddInteger(getSyntheticNodeSubclassData<MaskedGatherSDNode>(
-      dl.getIROrder(), VTs, VT, MMO));
+      dl.getIROrder(), VTs, VT, MMO, IndexType));
   ID.AddInteger(MMO->getPointerInfo().getAddrSpace());
   void *IP = nullptr;
   if (SDNode *E = FindNodeOrInsertPos(ID, dl, IP)) {
@@ -7258,7 +7259,7 @@ SDValue SelectionDAG::getGatherVP(SDVTList VTs, EVT VT, const SDLoc &dl,
   }
 
   auto *N = newSDNode<VPGatherSDNode>(dl.getIROrder(), dl.getDebugLoc(),
-                                          VTs, VT, MMO);
+                                          VTs, VT, MMO, IndexType);
   createOperands(N, Ops);
 
   assert(N->getMask().getValueType().getVectorNumElements() ==
@@ -7280,14 +7281,15 @@ SDValue SelectionDAG::getGatherVP(SDVTList VTs, EVT VT, const SDLoc &dl,
 
 SDValue SelectionDAG::getScatterVP(SDVTList VTs, EVT VT, const SDLoc &dl,
                                        ArrayRef<SDValue> Ops,
-                                       MachineMemOperand *MMO) {
+                                       MachineMemOperand *MMO,
+                                       ISD::MemIndexType IndexType) {
   assert(Ops.size() == 7 && "Incompatible number of operands");
 
   FoldingSetNodeID ID;
   AddNodeIDNode(ID, ISD::VP_SCATTER, VTs, Ops);
   ID.AddInteger(VT.getRawBits());
   ID.AddInteger(getSyntheticNodeSubclassData<MaskedScatterSDNode>(
-      dl.getIROrder(), VTs, VT, MMO));
+      dl.getIROrder(), VTs, VT, MMO, IndexType));
   ID.AddInteger(MMO->getPointerInfo().getAddrSpace());
   void *IP = nullptr;
   if (SDNode *E = FindNodeOrInsertPos(ID, dl, IP)) {
@@ -7295,7 +7297,7 @@ SDValue SelectionDAG::getScatterVP(SDVTList VTs, EVT VT, const SDLoc &dl,
     return SDValue(E, 0);
   }
   auto *N = newSDNode<VPScatterSDNode>(dl.getIROrder(), dl.getDebugLoc(),
-                                           VTs, VT, MMO);
+                                           VTs, VT, MMO, IndexType);
   createOperands(N, Ops);
 
   assert(N->getMask().getValueType().getVectorNumElements() ==
@@ -7314,6 +7316,7 @@ SDValue SelectionDAG::getScatterVP(SDVTList VTs, EVT VT, const SDLoc &dl,
   NewSDValueDbgMsg(V, "Creating new node: ", this);
   return V;
 }
+
 SDValue SelectionDAG::getMaskedStore(SDValue Chain, const SDLoc &dl,
                                      SDValue Val, SDValue Ptr, SDValue Mask,
                                      EVT MemVT, MachineMemOperand *MMO,

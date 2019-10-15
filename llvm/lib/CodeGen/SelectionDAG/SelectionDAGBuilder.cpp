@@ -4589,9 +4589,10 @@ void SelectionDAGBuilder::visitGatherVP(const CallInst &I) {
   SDValue Root = DAG.getRoot();
   SDValue Base;
   SDValue Index;
+  ISD::MemIndexType IndexType;
   SDValue Scale;
   const Value *BasePtr = Ptr;
-  bool UniformBase = getUniformBase(BasePtr, Base, Index, Scale, this);
+  bool UniformBase = getUniformBase(BasePtr, Base, Index, IndexType, Scale, this);
   bool ConstantMemory = false;
   if (UniformBase && AA &&
       AA->pointsToConstantMemory(
@@ -4616,7 +4617,7 @@ void SelectionDAGBuilder::visitGatherVP(const CallInst &I) {
     Scale = DAG.getTargetConstant(1, sdl, TLI.getPointerTy(DAG.getDataLayout()));
   }
   SDValue Ops[] = { Root, Base, Index, Scale, Mask, VLen };
-  SDValue Gather = DAG.getGatherVP(DAG.getVTList(VT, MVT::Other), VT, sdl, Ops, MMO);
+  SDValue Gather = DAG.getGatherVP(DAG.getVTList(VT, MVT::Other), VT, sdl, Ops, MMO, IndexType);
 
   SDValue OutChain = Gather.getValue(1);
   if (!ConstantMemory)
@@ -4643,9 +4644,10 @@ void SelectionDAGBuilder::visitScatterVP(const CallInst &I) {
 
   SDValue Base;
   SDValue Index;
+  ISD::MemIndexType IndexType;
   SDValue Scale;
   const Value *BasePtr = Ptr;
-  bool UniformBase = getUniformBase(BasePtr, Base, Index, Scale, this);
+  bool UniformBase = getUniformBase(BasePtr, Base, Index, IndexType, Scale, this);
 
   const Value *MemOpBasePtr = UniformBase ? BasePtr : nullptr;
   MachineMemOperand *MMO = DAG.getMachineFunction().
@@ -4659,7 +4661,7 @@ void SelectionDAGBuilder::visitScatterVP(const CallInst &I) {
   }
   SDValue Ops[] = { getRoot(), Src0, Base, Index, Scale, Mask, VLen };
   SDValue Scatter = DAG.getScatterVP(DAG.getVTList(MVT::Other), VT, sdl,
-                                         Ops, MMO);
+                                         Ops, MMO, IndexType);
   DAG.setRoot(Scatter);
   setValue(&I, Scatter);
 }
@@ -7236,8 +7238,7 @@ void SelectionDAGBuilder::visitConstrainedFPIntrinsic(
                          { Chain, getValue(FPI.getArgOperand(0)),
                            getValue(FPI.getArgOperand(1))  });
 
-  if (FPI.getExceptionBehavior() !=
-      ConstrainedFPIntrinsic::ExceptionBehavior::ebIgnore) {
+  if (FPI.getExceptionBehavior() != ExceptionBehavior::ebIgnore) {
     SDNodeFlags Flags;
     Flags.setFPExcept(true);
     Result->setFlags(Flags);
