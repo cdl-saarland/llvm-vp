@@ -221,6 +221,23 @@ namespace llvm {
     ebStrict
   };
 
+  /// Returns a valid RoundingMode enumerator when given a string
+  /// that is valid as input in constrained intrinsic rounding mode
+  /// metadata.
+  static Optional<RoundingMode> StrToRoundingMode(StringRef);
+
+  /// For any RoundingMode enumerator, returns a string valid as input in
+  /// constrained intrinsic rounding mode metadata.
+  static Optional<StringRef> RoundingModeToStr(RoundingMode);
+
+  /// Returns a valid ExceptionBehavior enumerator when given a string
+  /// valid as input in constrained intrinsic exception behavior metadata.
+  static Optional<ExceptionBehavior> StrToExceptionBehavior(StringRef);
+
+  /// For any ExceptionBehavior enumerator, returns a string valid as 
+  /// input in constrained intrinsic exception behavior metadata.
+  static Optional<StringRef> ExceptionBehaviorToStr(ExceptionBehavior);
+
   class VPIntrinsic : public IntrinsicInst {
   public:
     enum class VPTypeToken : int8_t {
@@ -411,23 +428,6 @@ namespace llvm {
     bool isTernaryOp() const;
     Optional<RoundingMode> getRoundingMode() const;
     Optional<ExceptionBehavior> getExceptionBehavior() const;
-
-    /// Returns a valid RoundingMode enumerator when given a string
-    /// that is valid as input in constrained intrinsic rounding mode
-    /// metadata.
-    static Optional<RoundingMode> StrToRoundingMode(StringRef);
-
-    /// For any RoundingMode enumerator, returns a string valid as input in
-    /// constrained intrinsic rounding mode metadata.
-    static Optional<StringRef> RoundingModeToStr(RoundingMode);
-
-    /// Returns a valid ExceptionBehavior enumerator when given a string
-    /// valid as input in constrained intrinsic exception behavior metadata.
-    static Optional<ExceptionBehavior> StrToExceptionBehavior(StringRef);
-
-    /// For any ExceptionBehavior enumerator, returns a string valid as 
-    /// input in constrained intrinsic exception behavior metadata.
-    static Optional<StringRef> ExceptionBehaviorToStr(ExceptionBehavior);
 
     // Methods for support type inquiry through isa, cast, and dyn_cast:
     static bool classof(const IntrinsicInst *I) {
