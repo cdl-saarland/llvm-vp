@@ -764,7 +764,8 @@ struct specific_bbval {
 
   specific_bbval(BasicBlock *Val) : Val(Val) {}
 
-  template <typename ITy> bool match(ITy *V) {
+  template <typename ITy> bool match(ITy *V) { EmptyContext EC; match_context(V, EC); }
+  template <typename ITy, typename MatchContext> bool match_context(ITy *V, MatchContext & MContext) {
     const auto *BB = dyn_cast<BasicBlock>(V);
     return BB && BB == Val;
   }
