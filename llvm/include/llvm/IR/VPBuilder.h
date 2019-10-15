@@ -21,7 +21,7 @@ class VPBuilder {
   // Compile-time vector length
   int StaticVectorLength;
 
-  // get a vlaid mask/evl argument for the current predication contet
+  // get a valid mask/evl argument for the current predication contet
   Value& GetMaskForType(VectorType & VecTy);
   Value& GetEVLForType(VectorType & VecTy);
 
@@ -51,10 +51,10 @@ public:
   Value* CreateVectorCopy(Instruction & Inst, ValArray VecOpArray);
 
   // Memory
-  Value& CreateContiguousStore(Value & Val, Value & Pointer, unsigned Alignment=0);
-  Value& CreateContiguousLoad(Value & Pointer, unsigned Alignment=0);
-  Value& CreateScatter(Value & Val, Value & PointerVec, unsigned Alignment=0);
-  Value& CreateGather(Value & PointerVec, unsigned Alignment=0);
+  Value& CreateContiguousStore(Value & Val, Value & Pointer, Align Alignment);
+  Value& CreateContiguousLoad(Value & Pointer, Align Alignment);
+  Value& CreateScatter(Value & Val, Value & PointerVec, Align Alignment);
+  Value& CreateGather(Value & PointerVec, Align Alignment);
 };
 
 
