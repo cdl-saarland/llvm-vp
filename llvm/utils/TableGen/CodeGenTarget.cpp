@@ -734,6 +734,7 @@ CodeGenIntrinsic::CodeGenIntrinsic(Record *R) {
              "Expected iAny or vAny type");
     } else {
       VT = getValueType(TyEl->getValueAsDef("VT"));
+    }
 
     // Reject invalid types.
     if (VT == MVT::isVoid && i != e-1 /*void at end means varargs*/)
