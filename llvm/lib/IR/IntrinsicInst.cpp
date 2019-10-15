@@ -102,19 +102,35 @@ Value *InstrProfIncrementInst::getStep() const {
   return ConstantInt::get(Type::getInt64Ty(Context), 1);
 }
 
-Optional<RoundingMode>
-ConstrainedFPIntrinsic::getRoundingMode() const {
-  unsigned NumOperands = getNumArgOperands();
-  assert(NumOperands >= 2 && "underflow");
-  Metadata *MD =
-      cast<MetadataAsValue>(getArgOperand(NumOperands - 2))->getMetadata();
-  if (!MD || !isa<MDString>(MD))
-    return None;
-  return StrToRoundingMode(cast<MDString>(MD)->getString());
+Optional<ExceptionBehavior>
+llvm::StrToExceptionBehavior(StringRef ExceptionArg) {
+  return StringSwitch<Optional<ExceptionBehavior>>(ExceptionArg)
+    .Case("fpexcept.ignore",  ExceptionBehavior::ebIgnore)
+    .Case("fpexcept.maytrap", ExceptionBehavior::ebMayTrap)
+    .Case("fpexcept.strict",  ExceptionBehavior::ebStrict)
+    .Default(None);
+}
+
+Optional<StringRef>
+llvm::ExceptionBehaviorToStr(ExceptionBehavior UseExcept) {
+  Optional<StringRef> ExceptStr = None;
+  switch (UseExcept) {
+  default: break;
+  case ExceptionBehavior::ebStrict:
+    ExceptStr = "fpexcept.strict";
+    break;
+  case ExceptionBehavior::ebIgnore:
+    ExceptStr = "fpexcept.ignore";
+    break;
+  case ExceptionBehavior::ebMayTrap:
+    ExceptStr = "fpexcept.maytrap";
+    break;
+  }
+  return ExceptStr;
 }
 
 Optional<RoundingMode>
-StrToRoundingMode(StringRef RoundingArg) {
+llvm::StrToRoundingMode(StringRef RoundingArg) {
   // For dynamic rounding mode, we use round to nearest but we will set the
   // 'exact' SDNodeFlag so that the value will not be rounded.
   return StringSwitch<Optional<RoundingMode>>(RoundingArg)
@@ -127,7 +143,7 @@ StrToRoundingMode(StringRef RoundingArg) {
 }
 
 Optional<StringRef>
-RoundingModeToStr(RoundingMode UseRounding) {
+llvm::RoundingModeToStr(RoundingMode UseRounding) {
   Optional<StringRef> RoundingStr = None;
   switch (UseRounding) {
   default: break;
@@ -150,6 +166,16 @@ RoundingModeToStr(RoundingMode UseRounding) {
   return RoundingStr;
 }
 
+Optional<RoundingMode>
+ConstrainedFPIntrinsic::getRoundingMode() const {
+  unsigned NumOperands = getNumArgOperands();
+  assert(NumOperands >= 2 && "underflow");
+  Metadata *MD =
+      cast<MetadataAsValue>(getArgOperand(NumOperands - 2))->getMetadata();
+  if (!MD || !isa<MDString>(MD))
+    return None;
+  return StrToRoundingMode(cast<MDString>(MD)->getString());
+}
 
 Optional<ExceptionBehavior>
 ConstrainedFPIntrinsic::getExceptionBehavior() const {
@@ -162,32 +188,6 @@ ConstrainedFPIntrinsic::getExceptionBehavior() const {
   return StrToExceptionBehavior(cast<MDString>(MD)->getString());
 }
 
-Optional<ExceptionBehavior>
-StrToExceptionBehavior(StringRef ExceptionArg) {
-  return StringSwitch<Optional<ExceptionBehavior>>(ExceptionArg)
-    .Case("fpexcept.ignore",  ExceptionBehavior::ebIgnore)
-    .Case("fpexcept.maytrap", ExceptionBehavior::ebMayTrap)
-    .Case("fpexcept.strict",  ExceptionBehavior::ebStrict)
-    .Default(None);
-}
-
-Optional<StringRef>
-ExceptionBehaviorToStr(ExceptionBehavior UseExcept) {
-  Optional<StringRef> ExceptStr = None;
-  switch (UseExcept) {
-  default: break;
-  case ExceptionBehavior::ebStrict:
-    ExceptStr = "fpexcept.strict";
-    break;
-  case ExceptionBehavior::ebIgnore:
-    ExceptStr = "fpexcept.ignore";
-    break;
-  case ExceptionBehavior::ebMayTrap:
-    ExceptStr = "fpexcept.maytrap";
-    break;
-  }
-  return ExceptStr;
-}
 
 CmpInst::Predicate
 VPIntrinsic::getCmpPredicate() const {
