@@ -4642,10 +4642,21 @@ Value *llvm::SimplifyFAddInst(Value *Op0, Value *Op1, FastMathFlags FMF,
 }
 
 
-Value *llvm::SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
-                              const SimplifyQuery &Q) {
+
+/// Given operands for an FSub, see if we can fold the result.
+static Value *SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
+                               const SimplifyQuery &Q, unsigned MaxRecurse) {
+  if (Constant *C = foldOrCommuteConstant(Instruction::FSub, Op0, Op1, Q))
+    return C;
+
   EmptyContext EC;
   return SimplifyFSubInstGeneric<EmptyContext>(Op0, Op1, FMF, Q, RecursionLimit, EC);
+}
+
+Value *llvm::SimplifyFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
+                              const SimplifyQuery &Q) {
+  // Now apply simplifications that do not require rounding.
+  return SimplifyFSubInst(Op0, Op1, FMF, Q, RecursionLimit);
 }
 
 Value *llvm::SimplifyPredicatedFSubInst(Value *Op0, Value *Op1, FastMathFlags FMF,
