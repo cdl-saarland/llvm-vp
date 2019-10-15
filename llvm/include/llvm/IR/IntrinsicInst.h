@@ -224,19 +224,19 @@ namespace llvm {
   /// Returns a valid RoundingMode enumerator when given a string
   /// that is valid as input in constrained intrinsic rounding mode
   /// metadata.
-  static Optional<RoundingMode> StrToRoundingMode(StringRef);
+  Optional<RoundingMode> StrToRoundingMode(StringRef);
 
   /// For any RoundingMode enumerator, returns a string valid as input in
   /// constrained intrinsic rounding mode metadata.
-  static Optional<StringRef> RoundingModeToStr(RoundingMode);
+  Optional<StringRef> RoundingModeToStr(RoundingMode);
 
   /// Returns a valid ExceptionBehavior enumerator when given a string
   /// valid as input in constrained intrinsic exception behavior metadata.
-  static Optional<ExceptionBehavior> StrToExceptionBehavior(StringRef);
+  Optional<ExceptionBehavior> StrToExceptionBehavior(StringRef);
 
   /// For any ExceptionBehavior enumerator, returns a string valid as 
   /// input in constrained intrinsic exception behavior metadata.
-  static Optional<StringRef> ExceptionBehaviorToStr(ExceptionBehavior);
+  Optional<StringRef> ExceptionBehaviorToStr(ExceptionBehavior);
 
   class VPIntrinsic : public IntrinsicInst {
   public:
