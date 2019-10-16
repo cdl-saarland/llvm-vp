@@ -233,52 +233,52 @@ TEST_F(IRBuilderTest, ConstrainedFP) {
   V = Builder.CreateFAdd(V, V);
   ASSERT_TRUE(isa<ConstrainedFPIntrinsic>(V));
   auto *CII = cast<ConstrainedFPIntrinsic>(V);
-  ASSERT_TRUE(CII->getExceptionBehavior() == ConstrainedFPIntrinsic::ebStrict);
-  ASSERT_TRUE(CII->getRoundingMode() == ConstrainedFPIntrinsic::rmDynamic);
+  ASSERT_TRUE(CII->getExceptionBehavior() == ExceptionBehavior::ebStrict);
+  ASSERT_TRUE(CII->getRoundingMode() == RoundingMode::rmDynamic);
 
-  Builder.setDefaultConstrainedExcept(ConstrainedFPIntrinsic::ebIgnore);
-  Builder.setDefaultConstrainedRounding(ConstrainedFPIntrinsic::rmUpward);
+  Builder.setDefaultConstrainedExcept(ExceptionBehavior::ebIgnore);
+  Builder.setDefaultConstrainedRounding(RoundingMode::rmUpward);
   V = Builder.CreateFAdd(V, V);
   CII = cast<ConstrainedFPIntrinsic>(V);
-  ASSERT_TRUE(CII->getExceptionBehavior() == ConstrainedFPIntrinsic::ebIgnore);
-  ASSERT_TRUE(CII->getRoundingMode() == ConstrainedFPIntrinsic::rmUpward);
+  ASSERT_TRUE(CII->getExceptionBehavior() == ExceptionBehavior::ebIgnore);
+  ASSERT_TRUE(CII->getRoundingMode() == RoundingMode::rmUpward);
 
-  Builder.setDefaultConstrainedExcept(ConstrainedFPIntrinsic::ebIgnore);
-  Builder.setDefaultConstrainedRounding(ConstrainedFPIntrinsic::rmToNearest);
+  Builder.setDefaultConstrainedExcept(ExceptionBehavior::ebIgnore);
+  Builder.setDefaultConstrainedRounding(RoundingMode::rmToNearest);
   V = Builder.CreateFAdd(V, V);
   CII = cast<ConstrainedFPIntrinsic>(V);
-  ASSERT_TRUE(CII->getExceptionBehavior() == ConstrainedFPIntrinsic::ebIgnore);
-  ASSERT_TRUE(CII->getRoundingMode() == ConstrainedFPIntrinsic::rmToNearest);
+  ASSERT_TRUE(CII->getExceptionBehavior() == ExceptionBehavior::ebIgnore);
+  ASSERT_TRUE(CII->getRoundingMode() == RoundingMode::rmToNearest);
 
-  Builder.setDefaultConstrainedExcept(ConstrainedFPIntrinsic::ebMayTrap);
-  Builder.setDefaultConstrainedRounding(ConstrainedFPIntrinsic::rmDownward);
+  Builder.setDefaultConstrainedExcept(ExceptionBehavior::ebMayTrap);
+  Builder.setDefaultConstrainedRounding(RoundingMode::rmDownward);
   V = Builder.CreateFAdd(V, V);
   CII = cast<ConstrainedFPIntrinsic>(V);
-  ASSERT_TRUE(CII->getExceptionBehavior() == ConstrainedFPIntrinsic::ebMayTrap);
-  ASSERT_TRUE(CII->getRoundingMode() == ConstrainedFPIntrinsic::rmDownward);
+  ASSERT_TRUE(CII->getExceptionBehavior() == ExceptionBehavior::ebMayTrap);
+  ASSERT_TRUE(CII->getRoundingMode() == RoundingMode::rmDownward);
 
-  Builder.setDefaultConstrainedExcept(ConstrainedFPIntrinsic::ebStrict);
-  Builder.setDefaultConstrainedRounding(ConstrainedFPIntrinsic::rmTowardZero);
+  Builder.setDefaultConstrainedExcept(ExceptionBehavior::ebStrict);
+  Builder.setDefaultConstrainedRounding(RoundingMode::rmTowardZero);
   V = Builder.CreateFAdd(V, V);
   CII = cast<ConstrainedFPIntrinsic>(V);
-  ASSERT_TRUE(CII->getExceptionBehavior() == ConstrainedFPIntrinsic::ebStrict);
-  ASSERT_TRUE(CII->getRoundingMode() == ConstrainedFPIntrinsic::rmTowardZero);
+  ASSERT_TRUE(CII->getExceptionBehavior() == ExceptionBehavior::ebStrict);
+  ASSERT_TRUE(CII->getRoundingMode() == RoundingMode::rmTowardZero);
 
-  Builder.setDefaultConstrainedExcept(ConstrainedFPIntrinsic::ebIgnore);
-  Builder.setDefaultConstrainedRounding(ConstrainedFPIntrinsic::rmDynamic);
+  Builder.setDefaultConstrainedExcept(ExceptionBehavior::ebIgnore);
+  Builder.setDefaultConstrainedRounding(RoundingMode::rmDynamic);
   V = Builder.CreateFAdd(V, V);
   CII = cast<ConstrainedFPIntrinsic>(V);
-  ASSERT_TRUE(CII->getExceptionBehavior() == ConstrainedFPIntrinsic::ebIgnore);
-  ASSERT_TRUE(CII->getRoundingMode() == ConstrainedFPIntrinsic::rmDynamic);
+  ASSERT_TRUE(CII->getExceptionBehavior() == ExceptionBehavior::ebIgnore);
+  ASSERT_TRUE(CII->getRoundingMode() == RoundingMode::rmDynamic);
 
   // Now override the defaults.
   Call = Builder.CreateConstrainedFPBinOp(
         Intrinsic::experimental_constrained_fadd, V, V, nullptr, "", nullptr,
-        ConstrainedFPIntrinsic::rmDownward, ConstrainedFPIntrinsic::ebMayTrap);
+        RoundingMode::rmDownward, ExceptionBehavior::ebMayTrap);
   CII = cast<ConstrainedFPIntrinsic>(Call);
   EXPECT_EQ(CII->getIntrinsicID(), Intrinsic::experimental_constrained_fadd);
-  ASSERT_TRUE(CII->getExceptionBehavior() == ConstrainedFPIntrinsic::ebMayTrap);
-  ASSERT_TRUE(CII->getRoundingMode() == ConstrainedFPIntrinsic::rmDownward);
+  ASSERT_TRUE(CII->getExceptionBehavior() == ExceptionBehavior::ebMayTrap);
+  ASSERT_TRUE(CII->getRoundingMode() == RoundingMode::rmDownward);
 
   Builder.CreateRetVoid();
   EXPECT_FALSE(verifyModule(*M));
