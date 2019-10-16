@@ -1150,71 +1150,71 @@ def int_vp_scatter: Intrinsic<[],
 // Reductions
 let IntrProperties = [IntrNoMem, Mask<2>, VectorLength<3>] in {
 def int_vp_reduce_add  : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_mul  : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_and  : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_or   : Intrinsic<[llvm_anyint_ty],
                                    [LLVMMatchType<0>,
                                     llvm_anyvector_ty,
                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
                                     llvm_i32_ty]>;
 def int_vp_reduce_xor  : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_smax : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_smin : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_umax : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_umin : Intrinsic<[llvm_anyint_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 
 def int_vp_reduce_fadd : Intrinsic<[llvm_anyfloat_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_fmul : Intrinsic<[llvm_anyfloat_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_fmax : Intrinsic<[llvm_anyfloat_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 def int_vp_reduce_fmin : Intrinsic<[llvm_anyfloat_ty],
-                                    [LLVMMatchType<0>,
-                                     llvm_anyvector_ty,
-                                     LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
-                                     llvm_i32_ty]>;
+                                   [LLVMMatchType<0>,
+                                    llvm_anyvector_ty,
+                                    LLVMScalarOrSameVectorWidth<1, llvm_i1_ty>,
+                                    llvm_i32_ty]>;
 }
 
 // Binary operators
