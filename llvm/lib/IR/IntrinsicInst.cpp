@@ -301,26 +301,16 @@ VPIntrinsic::hasExceptionBehaviorParam() const {
 
 Value*
 VPIntrinsic::getMask() const {
-  int offset = 0;
-  offset += hasRoundingModeParam();
-  offset += hasExceptionBehaviorParam();
-
-  if (isBinaryOp()) { return getArgOperand(offset + 2); }
-  else if (isTernaryOp()) { return getArgOperand(offset + 3); }
-  else if (isUnaryOp()) { return getArgOperand(offset + 1); }
-  else return nullptr;
+  auto maskPos = getMaskParamPos(getIntrinsicID());
+  if (maskPos) return getArgOperand(maskPos.getValue());
+  return nullptr;
 }
 
 Value*
 VPIntrinsic::getVectorLength() const {
-  int offset = 0;
-  offset += hasRoundingModeParam();
-  offset += hasExceptionBehaviorParam();
-
-  if (isBinaryOp()) { return getArgOperand(offset + 3); }
-  else if (isTernaryOp()) { return getArgOperand(offset + 4); }
-  else if (isUnaryOp()) { return getArgOperand(offset + 2); }
-  else return nullptr;
+  auto vlenPos = getVectorLengthParamPos(getIntrinsicID());
+  if (vlenPos) return getArgOperand(vlenPos.getValue());
+  return nullptr;
 }
 
 bool VPIntrinsic::isReductionOp() const {
