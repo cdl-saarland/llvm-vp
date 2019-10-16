@@ -880,18 +880,26 @@ template <typename Op_t> struct FNeg_match {
   template <typename OpTy> bool match(OpTy *V) { EmptyContext EContext; return match_context(V, EContext); }
   template <typename OpTy, typename MatchContext> bool match_context(OpTy *V, MatchContext & MContext) {
     auto *FPMO = dyn_cast<FPMathOperator>(V);
-    if (!FPMO || match_cast<MatchContext, const Operator>(V)->getOpcode() != Instruction::FSub)
-      return false;
-    if (FPMO->hasNoSignedZeros()) {
-      // With 'nsz', any zero goes.
-      if (!cstfp_pred_ty<is_any_zero_fp>().match_context(FPMO->getOperand(0), MContext))
-        return false;
-    } else {
-      // Without 'nsz', we need fsub -0.0, X exactly.
-      if (!cstfp_pred_ty<is_neg_zero_fp>().match_context(FPMO->getOperand(0), MContext))
-        return false;
+    if (!FPMO) return false;
+
+    if (match_cast<MatchContext, const Operator>(V)->getOpcode() == Instruction::FNeg)
+      return X.match(FPMO->getOperand(0));
+
+    if (match_cast<MatchContext, const Operator>(V)->getOpcode() == Instruction::FSub) {
+      if (FPMO->hasNoSignedZeros()) {
+        // With 'nsz', any zero goes.
+        if (!cstfp_pred_ty<is_any_zero_fp>().match_context(FPMO->getOperand(0), MContext))
+          return false;
+      } else {
+        // Without 'nsz', we need fsub -0.0, X exactly.
+        if (!cstfp_pred_ty<is_neg_zero_fp>().match_context(FPMO->getOperand(0), MContext))
+          return false;
+      }
+
+      return X.match_context(FPMO->getOperand(1), MContext);
     }
-    return X.match_context(FPMO->getOperand(1), MContext);
+
+    return false;
   }
 };
 
