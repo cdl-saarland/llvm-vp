@@ -1255,32 +1255,6 @@ let IntrProperties = [IntrNoMem, Mask<2>, VectorLength<3>] in {
                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                  llvm_i32_ty]>;
 
-  def int_vp_fadd : Intrinsic<[ llvm_anyvector_ty ],
-                               [ LLVMMatchType<0>,
-                                 LLVMMatchType<0>,
-                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                 llvm_i32_ty]>;
-  def int_vp_fsub : Intrinsic<[ llvm_anyvector_ty ],
-                               [ LLVMMatchType<0>,
-                                 LLVMMatchType<0>,
-                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                 llvm_i32_ty]>;
-  def int_vp_fmul : Intrinsic<[ llvm_anyvector_ty ],
-                               [ LLVMMatchType<0>,
-                                 LLVMMatchType<0>,
-                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                 llvm_i32_ty]>;
-  def int_vp_fdiv : Intrinsic<[ llvm_anyvector_ty ],
-                               [ LLVMMatchType<0>,
-                                 LLVMMatchType<0>,
-                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                 llvm_i32_ty]>;
-  def int_vp_frem : Intrinsic<[ llvm_anyvector_ty ],
-                               [ LLVMMatchType<0>,
-                                 LLVMMatchType<0>,
-                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                 llvm_i32_ty]>;
-
 // Logical operators
   def int_vp_ashr : Intrinsic<[ llvm_anyvector_ty ],
                                [ LLVMMatchType<0>,
@@ -1331,13 +1305,6 @@ def int_vp_fneg : Intrinsic<[ llvm_anyvector_ty ],
                                llvm_i32_ty],
                              [ IntrNoMem, Mask<1>, VectorLength<2> ]>;
 
-def int_vp_fma : Intrinsic<[ llvm_anyvector_ty ],
-                            [ LLVMMatchType<0>,
-                              LLVMMatchType<0>,
-                              LLVMMatchType<0>,
-                              LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                              llvm_i32_ty],
-                            [ IntrNoMem, Mask<3>, VectorLength<4> ]>;
 
 // Shuffle
 def int_vp_vshift: Intrinsic<[ llvm_anyvector_ty ],
@@ -1379,72 +1346,236 @@ def int_vp_compose : Intrinsic<[ llvm_anyvector_ty ],
 
 
 
-// These intrinsics are sensitive to the rounding mode so we need constrained
-// versions of each of them.  When strict rounding and exception control are
-// not required the non-constrained versions of these intrinsics should be
-// used.
+// VP fp rounding and truncation
+let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<2>, VectorLength<3> ] in {
 
-let IntrProperties = [IntrInaccessibleMemOnly, Mask<4>, VectorLength<5> ] in {
-  def int_vp_constrained_fadd : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_fsub : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_fmul : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_fdiv : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_frem : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
+  def int_vp_fptosi : Intrinsic<[ llvm_anyint_ty ],
+                                [ llvm_anyfloat_ty,
+                                  llvm_metadata_ty,
+                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                  llvm_i32_ty]>;
 
-  def int_vp_constrained_pow  : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_maxnum : Intrinsic<[ llvm_anyvector_ty ],
-                                            [ LLVMMatchType<0>,
-                                              LLVMMatchType<0>,
-                                              llvm_metadata_ty,
-                                              llvm_metadata_ty,
-                                              LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                              llvm_i32_ty ]>;
-  def int_vp_constrained_minnum : Intrinsic<[ llvm_anyvector_ty ],
-                                            [ LLVMMatchType<0>,
-                                              LLVMMatchType<0>,
-                                              llvm_metadata_ty,
-                                              llvm_metadata_ty,
-                                              LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                              llvm_i32_ty ]>;
+  def int_vp_fptoui : Intrinsic<[ llvm_anyint_ty ],
+                                [ llvm_anyfloat_ty,
+                                  llvm_metadata_ty,
+                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                  llvm_i32_ty]>;
+
+  def int_vp_fpext : Intrinsic<[ llvm_anyfloat_ty ],
+                               [ llvm_anyfloat_ty,
+                                 llvm_metadata_ty,
+                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                 llvm_i32_ty]>;
+
+  def int_vp_lround : Intrinsic<[ llvm_anyint_ty ],
+                                [ llvm_anyfloat_ty,
+                                  llvm_metadata_ty,
+                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                  llvm_i32_ty]>;
+  def int_vp_llround : Intrinsic<[ llvm_anyint_ty ],
+                                 [ llvm_anyfloat_ty,
+                                   llvm_metadata_ty,
+                                   LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                   llvm_i32_ty]>;
 }
 
-def int_vp_constrained_fma : Intrinsic<[ llvm_anyvector_ty ],
+let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<3>, VectorLength<4> ] in {
+  def int_vp_fptrunc : Intrinsic<[ llvm_anyfloat_ty ],
+                                 [ llvm_anyfloat_ty,
+                                   llvm_metadata_ty,
+                                   llvm_metadata_ty,
+                                   LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                   llvm_i32_ty]>;
+
+}
+
+// VP single argument constrained intrinsics.
+let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<3>, VectorLength<4> ] in {
+  // These intrinsics are sensitive to the rounding mode so we need constrained
+  // versions of each of them.  When strict rounding and exception control are
+  // not required the non-constrained versions of these intrinsics should be
+  // used.
+  def int_vp_sqrt : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_sin  : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty ]>;
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_cos  : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_log  : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_log10: Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_log2 : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_exp  : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_exp2 : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_rint  : Intrinsic<[ llvm_anyfloat_ty ],
+                               [ LLVMMatchType<0>,
+                                 llvm_metadata_ty,
+                                 llvm_metadata_ty,
+                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                 llvm_i32_ty]>;
+  def int_vp_nearbyint : Intrinsic<[ llvm_anyfloat_ty ],
+                                   [ LLVMMatchType<0>,
+                                     llvm_metadata_ty,
+                                     llvm_metadata_ty,
+                                     LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                     llvm_i32_ty]>;
+  def int_vp_lrint : Intrinsic<[ llvm_anyint_ty ],
+                               [ llvm_anyfloat_ty,
+                                 llvm_metadata_ty,
+                                 llvm_metadata_ty
+                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                 llvm_i32_ty]>;
+  def int_vp_llrint : Intrinsic<[ llvm_anyint_ty ],
+                                [ llvm_anyfloat_ty,
+                                  llvm_metadata_ty,
+                                  llvm_metadata_ty,
+                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                  llvm_i32_ty]>;
+  def int_vp_ceil : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_floor : Intrinsic<[ llvm_anyfloat_ty ],
+                               [ LLVMMatchType<0>,
+                                 llvm_metadata_ty,
+                                 llvm_metadata_ty,
+                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                 llvm_i32_ty]>;
+  def int_vp_round : Intrinsic<[ llvm_anyfloat_ty ],
+                               [ LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_trunc : Intrinsic<[ llvm_anyfloat_ty ],
+                               [ LLVMMatchType<0>,
+                                 llvm_metadata_ty,
+                                 llvm_metadata_ty,
+                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                 llvm_i32_ty]>;
+}
+
+
+// VP two argument constrained intrinsics.
+let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<4>, VectorLength<5> ] in {
+  // These intrinsics are sensitive to the rounding mode so we need constrained
+  // versions of each of them.  When strict rounding and exception control are
+  // not required the non-constrained versions of these intrinsics should be
+  // used.
+  def int_vp_powi : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                llvm_i32_ty,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_pow  : Intrinsic<[ llvm_anyfloat_ty ],
+                              [ LLVMMatchType<0>,
+                                LLVMMatchType<0>,
+                                llvm_metadata_ty,
+                                llvm_metadata_ty,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty]>;
+  def int_vp_maxnum : Intrinsic<[ llvm_anyfloat_ty ],
+                                [ LLVMMatchType<0>,
+                                  LLVMMatchType<0>,
+                                  llvm_metadata_ty,
+                                  llvm_metadata_ty,
+                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                  llvm_i32_ty]>;
+  def int_vp_minnum : Intrinsic<[ llvm_anyfloat_ty ],
+                                [ LLVMMatchType<0>,
+                                  LLVMMatchType<0>,
+                                  llvm_metadata_ty,
+                                  llvm_metadata_ty,
+                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                  llvm_i32_ty]>;
+
+}
+
+
+// VP standard fp-math intrinsics.
+let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<4>, VectorLength<5> ] in {
+  // These intrinsics are sensitive to the rounding mode so we need constrained
+  // versions of each of them.  When strict rounding and exception control are
+  // not required the non-constrained versions of these intrinsics should be
+  // used.
+  def int_vp_fadd : Intrinsic<[ llvm_anyvector_ty ],
+                                          [ LLVMMatchType<0>,
+                                            LLVMMatchType<0>,
+                                            llvm_metadata_ty,
+                                            llvm_metadata_ty,
+                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                            llvm_i32_ty ]>;
+  def int_vp_fsub : Intrinsic<[ llvm_anyvector_ty ],
+                                          [ LLVMMatchType<0>,
+                                            LLVMMatchType<0>,
+                                            llvm_metadata_ty,
+                                            llvm_metadata_ty,
+                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                            llvm_i32_ty ]>;
+  def int_vp_fmul : Intrinsic<[ llvm_anyvector_ty ],
+                                          [ LLVMMatchType<0>,
+                                            LLVMMatchType<0>,
+                                            llvm_metadata_ty,
+                                            llvm_metadata_ty,
+                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                            llvm_i32_ty ]>;
+  def int_vp_fdiv : Intrinsic<[ llvm_anyvector_ty ],
+                                          [ LLVMMatchType<0>,
+                                            LLVMMatchType<0>,
+                                            llvm_metadata_ty,
+                                            llvm_metadata_ty,
+                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                            llvm_i32_ty ]>;
+  def int_vp_frem : Intrinsic<[ llvm_anyvector_ty ],
+                                          [ LLVMMatchType<0>,
+                                            LLVMMatchType<0>,
+                                            llvm_metadata_ty,
+                                            llvm_metadata_ty,
+                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                            llvm_i32_ty ]>;
+}
+
+def int_vp_fma : Intrinsic<[ llvm_anyvector_ty ],
                                        [ LLVMMatchType<0>,
                                          LLVMMatchType<0>,
                                          LLVMMatchType<0>,
@@ -1454,104 +1585,11 @@ def int_vp_constrained_fma : Intrinsic<[ llvm_anyvector_ty ],
                                          llvm_i32_ty ],
                                        [ IntrInaccessibleMemOnly, Mask<5>, VectorLength<6> ]>;
 
-let IntrProperties = [IntrInaccessibleMemOnly, Mask<3>, VectorLength<4> ] in {
-  def int_vp_constrained_sqrt : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_powi : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_i32_ty,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_sin  : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_cos  : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_log  : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_log10: Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_log2 : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_exp  : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_exp2 : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_rint  : Intrinsic<[ llvm_anyvector_ty ],
-                                           [ LLVMMatchType<0>,
-                                             llvm_metadata_ty,
-                                             llvm_metadata_ty,
-                                              LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                              llvm_i32_ty ]>;
-  def int_vp_constrained_nearbyint : Intrinsic<[ llvm_anyvector_ty ],
-                                               [ LLVMMatchType<0>,
-                                                 llvm_metadata_ty,
-                                                 llvm_metadata_ty,
-                                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                                 llvm_i32_ty ]>;
-  def int_vp_constrained_ceil : Intrinsic<[ llvm_anyvector_ty ],
-                                          [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                            LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                            llvm_i32_ty ]>;
-  def int_vp_constrained_floor : Intrinsic<[ llvm_anyvector_ty ],
-                                           [ LLVMMatchType<0>,
-                                             llvm_metadata_ty,
-                                             llvm_metadata_ty,
-                                             LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                             llvm_i32_ty ]>;
-  def int_vp_constrained_round : Intrinsic<[ llvm_anyvector_ty ],
-                                           [ LLVMMatchType<0>,
-                                            llvm_metadata_ty,
-                                            llvm_metadata_ty,
-                                             LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                             llvm_i32_ty ]>;
-  def int_vp_constrained_trunc : Intrinsic<[ llvm_anyvector_ty ],
-                                           [ LLVMMatchType<0>,
-                                             llvm_metadata_ty,
-                                             llvm_metadata_ty,
-                                             LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                             llvm_i32_ty ]>;
-}
 
 
 
 //===-------------------------- Masked Intrinsics -------------------------===//
-// TODO poised for deprecation (superseded by llvm.vp*. intrinsics)
+// TODO poised for deprecation (superseded by llvm.vp.* intrinsics)
 def int_masked_store : Intrinsic<[], [llvm_anyvector_ty,
                                       LLVMAnyPointerType<LLVMMatchType<0>>,
                                       llvm_i32_ty,
