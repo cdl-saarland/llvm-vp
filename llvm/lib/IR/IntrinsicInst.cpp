@@ -631,6 +631,12 @@ VPIntrinsic::getExceptionBehaviorParamPos(Intrinsic::ID IntrinsicID) {
     case Intrinsic::vp_fpext:
     case Intrinsic::vp_fptrunc:
       return 2;
+
+    case Intrinsic::vp_fptoui:
+    case Intrinsic::vp_fptosi:
+    case Intrinsic::vp_lround:
+    case Intrinsic::vp_llround:
+      return 1;
   }
 }
 
@@ -677,7 +683,7 @@ VPIntrinsic::getRoundingModeParamPos(Intrinsic::ID IntrinsicID) {
     case Intrinsic::vp_fptosi:
     case Intrinsic::vp_lround:
     case Intrinsic::vp_llround:
-      return 1;
+      return None;
 
     case Intrinsic::vp_fpext:
     case Intrinsic::vp_fptrunc:
