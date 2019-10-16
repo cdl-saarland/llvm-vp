@@ -241,29 +241,22 @@ namespace llvm {
   class VPIntrinsic : public IntrinsicInst {
   public:
     enum class VPTypeToken : int8_t {
-      Scalar = 1, // scalar operand type
-      Vector = 2, // vectorized operand type
-      Mask = 3    // vector mask type
+      Returned = 0, // return type token
+      Scalar = 1,     // scalar operand type
+      Vector = 2,     // vectorized operand type
+      Mask = 3        // vector mask type
     };
 
     using TypeTokenVec = SmallVector<VPTypeToken, 4>;
     using ShortTypeVec = SmallVector<Type*, 4>;
+    
+    // Type tokens required to instantiate this intrinsic.
+    static TypeTokenVec GetTypeTokens(Intrinsic::ID);
 
-    struct
-    VPIntrinsicDesc {
-      Intrinsic::ID ID; // LLVM Intrinsic ID.
-      TypeTokenVec typeTokens; // Type Parmeters for the LLVM Intrinsic.
-      int MaskPos; // Parameter index of the Mask parameter.
-      int EVLPos; // Parameter index of the (Explicit) Vector Length parameter.
-      int ebPos; // Parameter index of the exception behavior parameter.
-      int rmPos; // Parameter index of the rounding mode behavior parameter.
-    };
-
-    // Translate this generic Opcode to a VPIntrinsic
-    static VPIntrinsicDesc GetVPIntrinsicDesc(unsigned OC);
-    // Translate this non-VP intrinsic to a VPIntrinsic.
-    static VPIntrinsicDesc GetVPDescForIntrinsic(unsigned IntrinsicID);
-
+    // whether the intrinsic has a rounding mode parameter (regardless of setting).
+    static bool hasRoundingModeParam(Intrinsic::ID VPID);
+    // whether the intrinsic has a exception behavior parameter (regardless of setting).
+    static bool hasExceptionBehaviorParam(Intrinsic::ID VPID);
     static Optional<int> getMaskParamPos(Intrinsic::ID IntrinsicID);
     static Optional<int> getVectorLengthParamPos(Intrinsic::ID IntrinsicID);
     static Optional<int> getExceptionBehaviorParamPos(Intrinsic::ID IntrinsicID);
@@ -274,7 +267,7 @@ namespace llvm {
 
     // Generate the disambiguating type vec for this VP Intrinsic
     static VPIntrinsic::ShortTypeVec
-    EncodeTypeTokens(VPIntrinsic::TypeTokenVec TTVec, Type & VectorTy, Type & ScalarTy);
+    EncodeTypeTokens(VPIntrinsic::TypeTokenVec TTVec, Type * VecRetTy, Type & VectorTy, Type & ScalarTy);
 
     // available for all VP intrinsics
     Value* getMask() const;
@@ -291,10 +284,6 @@ namespace llvm {
     // Contrained fp-math
     // whether this is an fp op with non-standard rounding or exception behavior.
     bool isConstrainedOp() const;
-    // whether the intrinsic has a rounding mode parameter (regardless of setting).
-    bool hasRoundingModeParam() const;
-    // whether the intrinsic has a exception behavior parameter (regardless of setting).
-    bool hasExceptionBehaviorParam() const;
 
     // the specified rounding mode.
     Optional<RoundingMode> getRoundingMode() const;

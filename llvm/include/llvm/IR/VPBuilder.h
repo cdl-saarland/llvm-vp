@@ -44,8 +44,6 @@ public:
   VPBuilder& setEVL(Value * _ExplicitVectorLength) { ExplicitVectorLength = _ExplicitVectorLength; return *this; }
   VPBuilder& setStaticVL(int VLen) { StaticVectorLength = VLen; return *this; }
 
-  VPIntrinsic::VPIntrinsicDesc GetVPIntrinsicDesc(unsigned OC);
-
   // Create a map-vectorized copy of the instruction \p Inst with the underlying IRBuilder instance.
   // This operation may return nullptr if the instruction could not be vectorized.
   Value* CreateVectorCopy(Instruction & Inst, ValArray VecOpArray);

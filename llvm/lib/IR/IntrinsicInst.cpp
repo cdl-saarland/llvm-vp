@@ -196,12 +196,11 @@ VPIntrinsic::getCmpPredicate() const {
 
 Optional<RoundingMode>
 VPIntrinsic::getRoundingMode() const {
-  if (!hasRoundingModeParam()) return None;
+  auto RmParamPos = getRoundingModeParamPos(getIntrinsicID());
+  if (!RmParamPos) return None;
 
-  unsigned NumOperands = getNumArgOperands();
-  assert(NumOperands >= 4 && "underflow");
   Metadata *MD =
-      dyn_cast<MetadataAsValue>(getArgOperand(NumOperands - 4))->getMetadata();
+      dyn_cast<MetadataAsValue>(getArgOperand(RmParamPos.getValue()))->getMetadata();
   if (!MD || !isa<MDString>(MD))
     return None;
   StringRef RoundingArg = cast<MDString>(MD)->getString();
@@ -210,12 +209,11 @@ VPIntrinsic::getRoundingMode() const {
 
 Optional<ExceptionBehavior>
 VPIntrinsic::getExceptionBehavior() const {
-  if (!hasExceptionBehaviorParam()) return None;
+  auto EbParamPos = getExceptionBehaviorParamPos(getIntrinsicID());
+  if (!EbParamPos) return None;
 
-  unsigned NumOperands = getNumArgOperands();
-  assert(NumOperands >= 3 && "underflow");
   Metadata *MD =
-      dyn_cast<MetadataAsValue>(getArgOperand(NumOperands - 3))->getMetadata();
+      dyn_cast<MetadataAsValue>(getArgOperand(EbParamPos.getValue()))->getMetadata();
   if (!MD || !isa<MDString>(MD))
     return None;
   StringRef ExceptionArg = cast<MDString>(MD)->getString();
@@ -223,8 +221,8 @@ VPIntrinsic::getExceptionBehavior() const {
 }
 
 bool
-VPIntrinsic::hasRoundingModeParam() const {
-  switch (getIntrinsicID()) {
+VPIntrinsic::hasRoundingModeParam(Intrinsic::ID VPID) {
+  switch (VPID) {
     default:
       return false;
 
@@ -250,6 +248,8 @@ VPIntrinsic::hasRoundingModeParam() const {
     case Intrinsic::vp_nearbyint:
     case Intrinsic::vp_pow:
     case Intrinsic::vp_powi:
+    case Intrinsic::vp_lrint:
+    case Intrinsic::vp_llrint:
     case Intrinsic::vp_rint:
     case Intrinsic::vp_round:
     case Intrinsic::vp_sin:
@@ -260,8 +260,8 @@ VPIntrinsic::hasRoundingModeParam() const {
 }
 
 bool
-VPIntrinsic::hasExceptionBehaviorParam() const {
-  switch (getIntrinsicID()) {
+VPIntrinsic::hasExceptionBehaviorParam(Intrinsic::ID VPID) {
+  switch (VPID) {
     default:
     case Intrinsic::vp_fpext:
     case Intrinsic::vp_fptosi:
@@ -290,6 +290,8 @@ VPIntrinsic::hasExceptionBehaviorParam() const {
     case Intrinsic::vp_nearbyint:
     case Intrinsic::vp_pow:
     case Intrinsic::vp_powi:
+    case Intrinsic::vp_lrint:
+    case Intrinsic::vp_llrint:
     case Intrinsic::vp_rint:
     case Intrinsic::vp_round:
     case Intrinsic::vp_sin:
@@ -311,6 +313,71 @@ VPIntrinsic::getVectorLength() const {
   auto vlenPos = getVectorLengthParamPos(getIntrinsicID());
   if (vlenPos) return getArgOperand(vlenPos.getValue());
   return nullptr;
+}
+
+VPIntrinsic::TypeTokenVec
+VPIntrinsic::GetTypeTokens(Intrinsic::ID ID) {
+  switch (ID) {
+    default:
+     return TypeTokenVec();
+
+    case Intrinsic::vp_cos:
+    case Intrinsic::vp_sin:
+    case Intrinsic::vp_exp:
+    case Intrinsic::vp_exp2:
+
+    case Intrinsic::vp_log:
+    case Intrinsic::vp_log2:
+    case Intrinsic::vp_log10:
+    case Intrinsic::vp_sqrt:
+    case Intrinsic::vp_ceil:
+    case Intrinsic::vp_floor:
+    case Intrinsic::vp_round:
+    case Intrinsic::vp_trunc:
+    case Intrinsic::vp_rint:
+    case Intrinsic::vp_nearbyint:
+    
+    case Intrinsic::vp_fadd:
+    case Intrinsic::vp_fsub:
+    case Intrinsic::vp_fmul:
+    case Intrinsic::vp_fdiv:
+    case Intrinsic::vp_frem:
+    case Intrinsic::vp_pow:
+    case Intrinsic::vp_powi:
+    case Intrinsic::vp_maxnum:
+    case Intrinsic::vp_minnum:
+      return TypeTokenVec{VPTypeToken::Returned};
+
+    case Intrinsic::vp_reduce_and:
+    case Intrinsic::vp_reduce_or:
+    case Intrinsic::vp_reduce_xor:
+
+    case Intrinsic::vp_reduce_add:
+    case Intrinsic::vp_reduce_mul:
+    case Intrinsic::vp_reduce_fadd:
+    case Intrinsic::vp_reduce_fmul:
+
+    case Intrinsic::vp_reduce_fmin:
+    case Intrinsic::vp_reduce_fmax:
+    case Intrinsic::vp_reduce_smin:
+    case Intrinsic::vp_reduce_smax:
+    case Intrinsic::vp_reduce_umin:
+    case Intrinsic::vp_reduce_umax:
+      return TypeTokenVec{VPTypeToken::Returned, VPTypeToken::Vector};
+
+    case Intrinsic::vp_fpext:
+    case Intrinsic::vp_fptrunc:
+    case Intrinsic::vp_fptoui:
+    case Intrinsic::vp_fptosi:
+    case Intrinsic::vp_lround:
+    case Intrinsic::vp_llround:
+    case Intrinsic::vp_lrint:
+    case Intrinsic::vp_llrint:
+      return TypeTokenVec{VPTypeToken::Returned, VPTypeToken::Vector};
+
+    case Intrinsic::vp_cmp:
+      return TypeTokenVec{VPTypeToken::Mask, VPTypeToken::Vector};
+  }
 }
 
 bool VPIntrinsic::isReductionOp() const {
@@ -469,6 +536,7 @@ VPIntrinsic::getMaskParamPos(Intrinsic::ID IntrinsicID) {
     case Intrinsic::vp_maxnum:
     case Intrinsic::vp_minnum:
       return 4;
+
     case Intrinsic::vp_nearbyint:
     case Intrinsic::vp_pow:
     case Intrinsic::vp_powi:
@@ -697,7 +765,7 @@ VPIntrinsic::getForOpcode(unsigned OC) {
 }
 
 VPIntrinsic::ShortTypeVec
-VPIntrinsic::EncodeTypeTokens(VPIntrinsic::TypeTokenVec TTVec, Type & VectorTy, Type & ScalarTy) {
+VPIntrinsic::EncodeTypeTokens(VPIntrinsic::TypeTokenVec TTVec, Type * VecRetTy, Type & VectorTy, Type & ScalarTy) {
   ShortTypeVec STV;
 
   for (auto Token : TTVec) {
@@ -705,8 +773,12 @@ VPIntrinsic::EncodeTypeTokens(VPIntrinsic::TypeTokenVec TTVec, Type & VectorTy, 
     default:
       llvm_unreachable("unsupported token"); // unsupported VPTypeToken
 
-    case VPIntrinsic::VPTypeToken::Scalar: STV.push_back(&ScalarTy); break;
-    case VPIntrinsic::VPTypeToken::Vector: STV.push_back(&VectorTy); break;
+    case VPIntrinsic::VPTypeToken::Scalar:   STV.push_back(&ScalarTy); break;
+    case VPIntrinsic::VPTypeToken::Vector:   STV.push_back(&VectorTy); break;
+    case VPIntrinsic::VPTypeToken::Returned:
+      assert(VecRetTy);
+      STV.push_back(VecRetTy);
+      break;
     case VPIntrinsic::VPTypeToken::Mask:
       auto NumElems = VectorTy.getVectorNumElements();
       auto MaskTy = VectorType::get(Type::getInt1Ty(VectorTy.getContext()), NumElems);

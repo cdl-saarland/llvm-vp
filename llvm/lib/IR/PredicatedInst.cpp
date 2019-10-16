@@ -26,12 +26,12 @@ PredicatedBinaryOperator::Create(Module * Mod,
                                  BasicBlock * InsertAtEnd,
                                  Instruction * InsertBefore) {
   assert(!(InsertAtEnd && InsertBefore));
+  auto VPID = VPIntrinsic::getForOpcode(Opc);
 
-  auto evlDesc = VPIntrinsic::GetVPIntrinsicDesc(Opc);
-
+  // Default Code Path
   if ((!Mod ||
       (!Mask && !VectorLen)) ||
-      evlDesc.ID == Intrinsic::not_intrinsic) {
+      VPID == Intrinsic::not_intrinsic) {
     if (InsertAtEnd) {
       return BinaryOperator::Create(Opc, V1, V2, Name, InsertAtEnd);
     } else {
@@ -44,17 +44,25 @@ PredicatedBinaryOperator::Create(Module * Mod,
   // Fetch the VP intrinsic
   auto & VecTy = cast<VectorType>(*V1->getType());
   auto & ScalarTy = *VecTy.getVectorElementType();
-  auto * Func = Intrinsic::getDeclaration(Mod, evlDesc.ID, VPIntrinsic::EncodeTypeTokens(evlDesc.typeTokens, VecTy, ScalarTy));
+  auto TypeTokens = VPIntrinsic::GetTypeTokens(VPID);
+  auto * VPFunc = Intrinsic::getDeclaration(Mod, VPID, VPIntrinsic::EncodeTypeTokens(TypeTokens, &VecTy, VecTy, ScalarTy));
 
-  assert((evlDesc.MaskPos == 2) && (evlDesc.EVLPos == 3));
+  LLVMContext & Ctx = V1->getContext();
+  SmallVector<Value*, 6> BinOpArgs({V1, V2});
+  if (VPIntrinsic::hasRoundingModeParam(VPID)) {
+    BinOpArgs.push_back(MetadataAsValue::get(Ctx, MDTuple::get(Ctx, {})));
+  }
+  if (VPIntrinsic::hasExceptionBehaviorParam(VPID)) {
+    BinOpArgs.push_back(MetadataAsValue::get(Ctx, MDTuple::get(Ctx, {})));
+  }
 
-  // Materialize the Call
-  ShortValueVec Args{V1, V2, Mask, VectorLen};
+  BinOpArgs.push_back(Mask);
+  BinOpArgs.push_back(VectorLen);
 
   if (InsertAtEnd) {
-    return CallInst::Create(Func, {V1, V2, Mask, VectorLen}, Name, InsertAtEnd);
+    return CallInst::Create(VPFunc, BinOpArgs, Name, InsertAtEnd);
   } else {
-    return CallInst::Create(Func, {V1, V2, Mask, VectorLen}, Name, InsertBefore);
+    return CallInst::Create(VPFunc, BinOpArgs, Name, InsertBefore);
   }
 }
 

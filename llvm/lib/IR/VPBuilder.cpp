@@ -36,16 +36,15 @@ VPBuilder::GetEVLForType(VectorType & VecTy) {
 
 Value*
 VPBuilder::CreateVectorCopy(Instruction & Inst, ValArray VecOpArray) {
-
-  auto oc = Inst.getOpcode();
-
-  auto evlDesc = VPIntrinsic::GetVPIntrinsicDesc(oc);
-  if (evlDesc.ID == Intrinsic::not_intrinsic) {
+  auto OC = Inst.getOpcode();
+  auto VPID = VPIntrinsic::getForOpcode(OC);
+  if (VPID == Intrinsic::not_intrinsic) {
     return nullptr;
   }
 
-  if ((oc <= Instruction::BinaryOpsEnd) &&
-      (oc >= Instruction::BinaryOpsBegin)) {
+  // Regular binary instructions
+  if ((OC <= Instruction::BinaryOpsEnd) &&
+      (OC >= Instruction::BinaryOpsBegin)) {
 
     assert(VecOpArray.size() == 2);
     Value & FirstOp = *VecOpArray[0];
@@ -53,10 +52,9 @@ VPBuilder::CreateVectorCopy(Instruction & Inst, ValArray VecOpArray) {
 
     // Fetch the VP intrinsic
     auto & VecTy = cast<VectorType>(*FirstOp.getType());
-    assert((evlDesc.MaskPos == 2) && (evlDesc.EVLPos == 3));
 
     auto & VPCall =
-      cast<Instruction>(*PredicatedBinaryOperator::Create(&getModule(), &GetMaskForType(VecTy), &GetEVLForType(VecTy), static_cast<Instruction::BinaryOps>(oc), &FirstOp, &SndOp));
+      cast<Instruction>(*PredicatedBinaryOperator::Create(&getModule(), &GetMaskForType(VecTy), &GetEVLForType(VecTy), static_cast<Instruction::BinaryOps>(OC), &FirstOp, &SndOp));
     Builder.Insert(&VPCall);
 
     // transfer fast math flags
@@ -67,22 +65,22 @@ VPBuilder::CreateVectorCopy(Instruction & Inst, ValArray VecOpArray) {
     return &VPCall;
   }
 
-  if ((oc <= Instruction::UnaryOpsBegin) &&
-      (oc >= Instruction::UnaryOpsEnd)) {
+  // Regular unary instructions
+  if ((OC <= Instruction::UnaryOpsBegin) &&
+      (OC >= Instruction::UnaryOpsEnd)) {
     assert(VecOpArray.size() == 1);
     Value & FirstOp = *VecOpArray[0];
 
     // Fetch the VP intrinsic
     auto & VecTy = cast<VectorType>(*FirstOp.getType());
     auto & ScalarTy = *VecTy.getVectorElementType();
-    auto * Func = Intrinsic::getDeclaration(&getModule(), evlDesc.ID, VPIntrinsic::EncodeTypeTokens(evlDesc.typeTokens, VecTy, ScalarTy));
-
-    assert((evlDesc.MaskPos == 1) && (evlDesc.EVLPos == 2));
+    auto TypeTokens = VPIntrinsic::GetTypeTokens(VPID);
+    auto * VPFunc = Intrinsic::getDeclaration(&getModule(), VPID, VPIntrinsic::EncodeTypeTokens(TypeTokens, &VecTy, VecTy, ScalarTy));
 
     // Materialize the Call
     ShortValueVec Args{&FirstOp, &GetMaskForType(VecTy), &GetEVLForType(VecTy)};
 
-    auto & VPCall = *Builder.CreateCall(Func, Args);
+    auto & VPCall = *Builder.CreateCall(VPFunc, Args);
 
     // transfer fast math flags
     if (isa<FPMathOperator>(Inst)) {
@@ -92,9 +90,10 @@ VPBuilder::CreateVectorCopy(Instruction & Inst, ValArray VecOpArray) {
     return &VPCall;
   }
 
-  switch (oc) {
+  // Special cases
+  switch (OC) {
     default:
-      return nullptr;
+      break;
 
     case Instruction::FCmp:
     case Instruction::ICmp: {
@@ -105,9 +104,10 @@ VPBuilder::CreateVectorCopy(Instruction & Inst, ValArray VecOpArray) {
       // Fetch the VP intrinsic
       auto & VecTy = cast<VectorType>(*FirstOp.getType());
       auto & ScalarTy = *VecTy.getVectorElementType();
-      auto * Func = Intrinsic::getDeclaration(&getModule(), evlDesc.ID, VPIntrinsic::EncodeTypeTokens(evlDesc.typeTokens, VecTy, ScalarTy));
+      auto TypeTokens = VPIntrinsic::GetTypeTokens(VPID);
+      auto * Func = Intrinsic::getDeclaration(&getModule(), VPID, VPIntrinsic::EncodeTypeTokens(TypeTokens, &VecTy, VecTy, ScalarTy));
 
-      assert((evlDesc.MaskPos == 2) && (evlDesc.EVLPos == 3));
+      assert((VPIntrinsic::getMaskParamPos(VPID) == 2) && (VPIntrinsic::getVectorLengthParamPos(VPID) == 3));
 
       // encode comparison predicate as MD
       uint8_t RawPred = cast<CmpInst>(Inst).getPredicate();
@@ -129,10 +129,11 @@ VPBuilder::CreateVectorCopy(Instruction & Inst, ValArray VecOpArray) {
       // Fetch the VP intrinsic
       auto & VecTy = cast<VectorType>(*OnTrueOp.getType());
       auto & ScalarTy = *VecTy.getVectorElementType();
+      auto TypeTokens = VPIntrinsic::GetTypeTokens(VPID);
 
-      auto * Func = Intrinsic::getDeclaration(&getModule(), evlDesc.ID, VPIntrinsic::EncodeTypeTokens(evlDesc.typeTokens, VecTy, ScalarTy));
+      auto * Func = Intrinsic::getDeclaration(&getModule(), VPID, VPIntrinsic::EncodeTypeTokens(TypeTokens, &VecTy, VecTy, ScalarTy));
 
-      assert((evlDesc.MaskPos == 2) && (evlDesc.EVLPos == 3));
+      assert((VPIntrinsic::getMaskParamPos(VPID) == 2) && (VPIntrinsic::getVectorLengthParamPos(VPID) == 3));
 
       // Materialize the Call
       ShortValueVec Args{&OnTrueOp, &OnFalseOp, &MaskOp, &GetEVLForType(VecTy)};
@@ -140,7 +141,12 @@ VPBuilder::CreateVectorCopy(Instruction & Inst, ValArray VecOpArray) {
       return Builder.CreateCall(Func, Args);
     }
   }
+
+  // TODO VP reductions
+  // TODO VP casts
+  return nullptr;
 }
+
 
 VectorType&
 VPBuilder::getVectorType(Type &ElementTy) {
