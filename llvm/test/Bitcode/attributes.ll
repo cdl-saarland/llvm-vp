@@ -374,7 +374,7 @@ define void @f63() sanitize_memtag
   ret void;
 }
 
-; CHECK: define <8 x double> @f60(<8 x double> passthru, <8 x i1> mask, i32 vlen) {
+; CHECK: define <8 x double> @f64(<8 x double> passthru %0, <8 x i1> mask %1, i32 vlen %2) {
 define <8 x double> @f64(<8 x double> passthru, <8 x i1> mask, i32 vlen) {
   ret <8 x double> undef
 }
