@@ -254,7 +254,7 @@ namespace llvm {
       Intrinsic::ID ID; // LLVM Intrinsic ID.
       TypeTokenVec typeTokens; // Type Parmeters for the LLVM Intrinsic.
       int MaskPos; // Parameter index of the Mask parameter.
-      int EVLPos; // Parameter index of the VP parameter.
+      int EVLPos; // Parameter index of the (Explicit) Vector Length parameter.
     };
 
     // Translate this generic Opcode to a VPIntrinsic
