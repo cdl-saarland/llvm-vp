@@ -196,6 +196,8 @@ VPIntrinsic::getCmpPredicate() const {
 
 Optional<RoundingMode>
 VPIntrinsic::getRoundingMode() const {
+  if (!hasRoundingModeParam()) return None;
+
   unsigned NumOperands = getNumArgOperands();
   assert(NumOperands >= 4 && "underflow");
   Metadata *MD =
@@ -208,6 +210,8 @@ VPIntrinsic::getRoundingMode() const {
 
 Optional<ExceptionBehavior>
 VPIntrinsic::getExceptionBehavior() const {
+  if (!hasExceptionBehaviorParam()) return None;
+
   unsigned NumOperands = getNumArgOperands();
   assert(NumOperands >= 3 && "underflow");
   Metadata *MD =
@@ -218,25 +222,79 @@ VPIntrinsic::getExceptionBehavior() const {
   return StrToExceptionBehavior(ExceptionArg);
 }
 
-bool VPIntrinsic::isUnaryOp() const {
+bool
+VPIntrinsic::hasRoundingModeParam() const {
   switch (getIntrinsicID()) {
     default:
       return false;
+
+    case Intrinsic::vp_ceil:
+    case Intrinsic::vp_cos:
+    case Intrinsic::vp_exp2:
+    case Intrinsic::vp_exp:
+    case Intrinsic::vp_fadd:
+    case Intrinsic::vp_fdiv:
+    case Intrinsic::vp_floor:
+    case Intrinsic::vp_fma:
+    case Intrinsic::vp_fmul:
     case Intrinsic::vp_fneg:
-    case Intrinsic::vp_constrained_sin:
-    case Intrinsic::vp_constrained_cos:
-    case Intrinsic::vp_constrained_exp:
-    case Intrinsic::vp_constrained_exp2:
-    case Intrinsic::vp_constrained_log:
-    case Intrinsic::vp_constrained_log10:
-    case Intrinsic::vp_constrained_log2:
-    case Intrinsic::vp_constrained_sqrt:
-    case Intrinsic::vp_constrained_ceil:
-    case Intrinsic::vp_constrained_floor:
-    case Intrinsic::vp_constrained_round:
-    case Intrinsic::vp_constrained_trunc:
-    case Intrinsic::vp_constrained_rint:
-    case Intrinsic::vp_constrained_nearbyint:
+    case Intrinsic::vp_frem:
+    case Intrinsic::vp_fsub:
+    case Intrinsic::vp_llround:
+    case Intrinsic::vp_log10:
+    case Intrinsic::vp_log2:
+    case Intrinsic::vp_log:
+    case Intrinsic::vp_lround:
+    case Intrinsic::vp_maxnum:
+    case Intrinsic::vp_minnum:
+    case Intrinsic::vp_nearbyint:
+    case Intrinsic::vp_pow:
+    case Intrinsic::vp_powi:
+    case Intrinsic::vp_rint:
+    case Intrinsic::vp_round:
+    case Intrinsic::vp_sin:
+    case Intrinsic::vp_sqrt:
+    case Intrinsic::vp_trunc:
+      return true;
+  }
+}
+
+bool
+VPIntrinsic::hasExceptionBehaviorParam() const {
+  switch (getIntrinsicID()) {
+    default:
+    case Intrinsic::vp_fpext:
+    case Intrinsic::vp_fptosi:
+    case Intrinsic::vp_fptoui:
+    case Intrinsic::vp_fptrunc:
+    case Intrinsic::vp_llround:
+    case Intrinsic::vp_lround:
+      return false;
+
+    case Intrinsic::vp_ceil:
+    case Intrinsic::vp_cos:
+    case Intrinsic::vp_exp2:
+    case Intrinsic::vp_exp:
+    case Intrinsic::vp_fadd:
+    case Intrinsic::vp_fdiv:
+    case Intrinsic::vp_floor:
+    case Intrinsic::vp_fma:
+    case Intrinsic::vp_fmul:
+    case Intrinsic::vp_frem:
+    case Intrinsic::vp_fsub:
+    case Intrinsic::vp_log10:
+    case Intrinsic::vp_log2:
+    case Intrinsic::vp_log:
+    case Intrinsic::vp_maxnum:
+    case Intrinsic::vp_minnum:
+    case Intrinsic::vp_nearbyint:
+    case Intrinsic::vp_pow:
+    case Intrinsic::vp_powi:
+    case Intrinsic::vp_rint:
+    case Intrinsic::vp_round:
+    case Intrinsic::vp_sin:
+    case Intrinsic::vp_sqrt:
+    case Intrinsic::vp_trunc:
       return true;
   }
 }
@@ -244,7 +302,8 @@ bool VPIntrinsic::isUnaryOp() const {
 Value*
 VPIntrinsic::getMask() const {
   int offset = 0;
-  if (isConstrainedOp()) offset += 2; // skip rounding, exception args
+  offset += hasRoundingModeParam();
+  offset += hasExceptionBehaviorParam();
 
   if (isBinaryOp()) { return getArgOperand(offset + 2); }
   else if (isTernaryOp()) { return getArgOperand(offset + 3); }
@@ -255,7 +314,8 @@ VPIntrinsic::getMask() const {
 Value*
 VPIntrinsic::getVectorLength() const {
   int offset = 0;
-  if (isConstrainedOp()) offset += 2; // skip rounding, exception args
+  offset += hasRoundingModeParam();
+  offset += hasExceptionBehaviorParam();
 
   if (isBinaryOp()) { return getArgOperand(offset + 3); }
   else if (isTernaryOp()) { return getArgOperand(offset + 4); }
@@ -289,36 +349,8 @@ bool VPIntrinsic::isReductionOp() const {
 }
 
 bool VPIntrinsic::isConstrainedOp() const {
-  switch (getIntrinsicID()) {
-    default:
-      return false;
-
-    case Intrinsic::vp_constrained_fadd:
-    case Intrinsic::vp_constrained_fsub:
-    case Intrinsic::vp_constrained_fmul:
-    case Intrinsic::vp_constrained_fdiv:
-    case Intrinsic::vp_constrained_frem:
-    case Intrinsic::vp_constrained_fma:
-    case Intrinsic::vp_constrained_sqrt:
-    case Intrinsic::vp_constrained_pow:
-    case Intrinsic::vp_constrained_powi:
-    case Intrinsic::vp_constrained_sin:
-    case Intrinsic::vp_constrained_cos:
-    case Intrinsic::vp_constrained_exp:
-    case Intrinsic::vp_constrained_exp2:
-    case Intrinsic::vp_constrained_log:
-    case Intrinsic::vp_constrained_log10:
-    case Intrinsic::vp_constrained_log2:
-    case Intrinsic::vp_constrained_rint:
-    case Intrinsic::vp_constrained_nearbyint:
-    case Intrinsic::vp_constrained_maxnum:
-    case Intrinsic::vp_constrained_minnum:
-    case Intrinsic::vp_constrained_ceil:
-    case Intrinsic::vp_constrained_floor:
-    case Intrinsic::vp_constrained_round:
-    case Intrinsic::vp_constrained_trunc:
-      return true;
-  }
+  return (getRoundingMode() != None && getRoundingMode() != RoundingMode::rmToNearest) ||
+         (getExceptionBehavior() != None && getExceptionBehavior() != ExceptionBehavior::ebIgnore);
 }
 
 bool VPIntrinsic::isBinaryOp() const {
@@ -360,17 +392,6 @@ bool VPIntrinsic::isBinaryOp() const {
     case Intrinsic::vp_sdiv:
     case Intrinsic::vp_urem:
     case Intrinsic::vp_srem:
-
-    case Intrinsic::vp_constrained_fadd:
-    case Intrinsic::vp_constrained_fsub:
-    case Intrinsic::vp_constrained_fmul:
-    case Intrinsic::vp_constrained_fdiv:
-    case Intrinsic::vp_constrained_frem:
-    case Intrinsic::vp_constrained_pow:
-    case Intrinsic::vp_constrained_powi:
-    case Intrinsic::vp_constrained_maxnum:
-    case Intrinsic::vp_constrained_minnum:
-
       return true;
   }
 }
@@ -382,87 +403,306 @@ bool VPIntrinsic::isTernaryOp() const {
     case Intrinsic::vp_compose:
     case Intrinsic::vp_select:
     case Intrinsic::vp_fma:
-    case Intrinsic::experimental_constrained_fma:
       return true;
   }
 }
 
-VPIntrinsic::VPIntrinsicDesc
-VPIntrinsic::GetVPDescForIntrinsic(unsigned IntrinsicID) {
+Optional<int>
+VPIntrinsic::getMaskParamPos(Intrinsic::ID IntrinsicID) {
   switch (IntrinsicID) {
-  default:
-    return VPIntrinsicDesc{Intrinsic::not_intrinsic, TypeTokenVec(), -1, -1};
+    default: return None;
 
-  // llvm.experimental.constrained.*
-  case Intrinsic::experimental_constrained_cos: return VPIntrinsicDesc{ Intrinsic::vp_constrained_cos, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_sin: return VPIntrinsicDesc{ Intrinsic::vp_constrained_sin, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_exp: return VPIntrinsicDesc{ Intrinsic::vp_constrained_exp, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_exp2: return VPIntrinsicDesc{ Intrinsic::vp_constrained_exp2, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_log: return VPIntrinsicDesc{ Intrinsic::vp_constrained_log, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_log2: return VPIntrinsicDesc{ Intrinsic::vp_constrained_log2, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_log10: return VPIntrinsicDesc{ Intrinsic::vp_constrained_log10, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_sqrt: return VPIntrinsicDesc{ Intrinsic::vp_constrained_sqrt, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_ceil: return VPIntrinsicDesc{ Intrinsic::vp_constrained_ceil, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_floor: return VPIntrinsicDesc{ Intrinsic::vp_constrained_floor, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_round: return VPIntrinsicDesc{ Intrinsic::vp_constrained_round, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_trunc: return VPIntrinsicDesc{ Intrinsic::vp_constrained_trunc, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_rint: return VPIntrinsicDesc{ Intrinsic::vp_constrained_rint, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
-  case Intrinsic::experimental_constrained_nearbyint: return VPIntrinsicDesc{ Intrinsic::vp_constrained_nearbyint, TypeTokenVec{VPTypeToken::Vector}, 3, 4}; break;
+    // general cmp
+    case Intrinsic::vp_cmp:
+      return 2;
 
-  case Intrinsic::experimental_constrained_fadd: return VPIntrinsicDesc{ Intrinsic::vp_constrained_fadd, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_fsub: return VPIntrinsicDesc{ Intrinsic::vp_constrained_fsub, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_fmul: return VPIntrinsicDesc{ Intrinsic::vp_constrained_fmul, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_fdiv: return VPIntrinsicDesc{ Intrinsic::vp_constrained_fdiv, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_frem: return VPIntrinsicDesc{ Intrinsic::vp_constrained_frem, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_pow: return VPIntrinsicDesc{ Intrinsic::vp_constrained_pow, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_powi: return VPIntrinsicDesc{ Intrinsic::vp_constrained_powi, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_maxnum: return VPIntrinsicDesc{ Intrinsic::vp_constrained_maxnum, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
-  case Intrinsic::experimental_constrained_minnum: return VPIntrinsicDesc{ Intrinsic::vp_constrained_minnum, TypeTokenVec{VPTypeToken::Vector}, 4, 5}; break;
+    // int arith
+    case Intrinsic::vp_and:
+    case Intrinsic::vp_or:
+    case Intrinsic::vp_xor:
+    case Intrinsic::vp_ashr:
+    case Intrinsic::vp_lshr:
+    case Intrinsic::vp_shl:
+    case Intrinsic::vp_add:
+    case Intrinsic::vp_sub:
+    case Intrinsic::vp_mul:
+    case Intrinsic::vp_udiv:
+    case Intrinsic::vp_sdiv:
+    case Intrinsic::vp_urem:
+    case Intrinsic::vp_srem:
+      return 2;
 
-  case Intrinsic::experimental_constrained_fma: return VPIntrinsicDesc{ Intrinsic::vp_constrained_fma, TypeTokenVec{VPTypeToken::Vector}, 5, 6}; break;
+    // memory
+    case Intrinsic::vp_load:
+    case Intrinsic::vp_gather:
+      return 1;
+    case Intrinsic::vp_store:
+    case Intrinsic::vp_scatter:
+      return 2;
+
+    // shuffle
+    case Intrinsic::vp_select:
+      return 0;
+
+    case Intrinsic::vp_compose:
+      return None;
+
+    case Intrinsic::vp_compress:
+    case Intrinsic::vp_expand:
+    case Intrinsic::vp_vshift:
+      return 2;
+
+    // fp arith
+    case Intrinsic::vp_fneg:
+      return 1;
+
+    case Intrinsic::vp_fadd:
+    case Intrinsic::vp_fsub:
+    case Intrinsic::vp_fmul:
+    case Intrinsic::vp_fdiv:
+    case Intrinsic::vp_frem:
+      return 4;
+
+    case Intrinsic::vp_fma:
+      return 5;
+
+    case Intrinsic::vp_ceil:
+    case Intrinsic::vp_cos:
+    case Intrinsic::vp_exp2:
+    case Intrinsic::vp_exp:
+    case Intrinsic::vp_floor:
+    case Intrinsic::vp_log10:
+    case Intrinsic::vp_log2:
+    case Intrinsic::vp_log:
+      return 3;
+
+    case Intrinsic::vp_maxnum:
+    case Intrinsic::vp_minnum:
+      return 4;
+    case Intrinsic::vp_nearbyint:
+    case Intrinsic::vp_pow:
+    case Intrinsic::vp_powi:
+    case Intrinsic::vp_rint:
+    case Intrinsic::vp_round:
+    case Intrinsic::vp_sin:
+    case Intrinsic::vp_sqrt:
+    case Intrinsic::vp_trunc:
+      return 3;
+
+    case Intrinsic::vp_fptoui:
+    case Intrinsic::vp_fptosi:
+    case Intrinsic::vp_lround:
+    case Intrinsic::vp_llround:
+      return 2;
+
+    case Intrinsic::vp_fpext:
+    case Intrinsic::vp_fptrunc:
+      return 3;
+
+    // reductions
+    case Intrinsic::vp_reduce_add:
+    case Intrinsic::vp_reduce_mul:
+    case Intrinsic::vp_reduce_umin:
+    case Intrinsic::vp_reduce_umax:
+    case Intrinsic::vp_reduce_smin:
+    case Intrinsic::vp_reduce_smax:
+    case Intrinsic::vp_reduce_and:
+    case Intrinsic::vp_reduce_or:
+    case Intrinsic::vp_reduce_xor:
+    case Intrinsic::vp_reduce_fadd:
+    case Intrinsic::vp_reduce_fmul:
+    case Intrinsic::vp_reduce_fmin:
+    case Intrinsic::vp_reduce_fmax:
+      return 2;
   }
 }
 
-VPIntrinsic::VPIntrinsicDesc
-VPIntrinsic::GetVPIntrinsicDesc(unsigned OC) {
+Optional<int>
+VPIntrinsic::getVectorLengthParamPos(Intrinsic::ID IntrinsicID) {
+  auto maskPos = getMaskParamPos(IntrinsicID);
+  if (maskPos) {
+    return maskPos.getValue() + 1;
+  }
+
+  if (IntrinsicID == Intrinsic::vp_compose) {
+    return 3;
+  }
+
+  return None;
+}
+
+Optional<int>
+VPIntrinsic::getExceptionBehaviorParamPos(Intrinsic::ID IntrinsicID) {
+  switch (IntrinsicID) {
+    default:
+      return None;
+
+    case Intrinsic::vp_fadd:
+    case Intrinsic::vp_fsub:
+    case Intrinsic::vp_fmul:
+    case Intrinsic::vp_fdiv:
+    case Intrinsic::vp_frem:
+      return 3;
+
+    case Intrinsic::vp_fma:
+      return 4;
+
+    case Intrinsic::vp_ceil:
+    case Intrinsic::vp_cos:
+    case Intrinsic::vp_exp2:
+    case Intrinsic::vp_exp:
+    case Intrinsic::vp_floor:
+    case Intrinsic::vp_log10:
+    case Intrinsic::vp_log2:
+    case Intrinsic::vp_log:
+      return 2;
+
+    case Intrinsic::vp_maxnum:
+    case Intrinsic::vp_minnum:
+      return 3;
+    case Intrinsic::vp_nearbyint:
+    case Intrinsic::vp_pow:
+    case Intrinsic::vp_powi:
+    case Intrinsic::vp_rint:
+    case Intrinsic::vp_round:
+    case Intrinsic::vp_sin:
+    case Intrinsic::vp_sqrt:
+    case Intrinsic::vp_trunc:
+      return 2;
+
+    case Intrinsic::vp_fpext:
+    case Intrinsic::vp_fptrunc:
+      return 2;
+  }
+}
+
+Optional<int>
+VPIntrinsic::getRoundingModeParamPos(Intrinsic::ID IntrinsicID) {
+  switch (IntrinsicID) {
+    default:
+      return None;
+
+    case Intrinsic::vp_fadd:
+    case Intrinsic::vp_fsub:
+    case Intrinsic::vp_fmul:
+    case Intrinsic::vp_fdiv:
+    case Intrinsic::vp_frem:
+      return 2;
+
+    case Intrinsic::vp_fma:
+      return 3;
+
+    case Intrinsic::vp_ceil:
+    case Intrinsic::vp_cos:
+    case Intrinsic::vp_exp2:
+    case Intrinsic::vp_exp:
+    case Intrinsic::vp_floor:
+    case Intrinsic::vp_log10:
+    case Intrinsic::vp_log2:
+    case Intrinsic::vp_log:
+      return 1;
+
+    case Intrinsic::vp_maxnum:
+    case Intrinsic::vp_minnum:
+      return 2;
+    case Intrinsic::vp_nearbyint:
+    case Intrinsic::vp_pow:
+    case Intrinsic::vp_powi:
+    case Intrinsic::vp_rint:
+    case Intrinsic::vp_round:
+    case Intrinsic::vp_sin:
+    case Intrinsic::vp_sqrt:
+    case Intrinsic::vp_trunc:
+      return 1;
+
+    case Intrinsic::vp_fptoui:
+    case Intrinsic::vp_fptosi:
+    case Intrinsic::vp_lround:
+    case Intrinsic::vp_llround:
+      return 1;
+
+    case Intrinsic::vp_fpext:
+    case Intrinsic::vp_fptrunc:
+      return 2;
+  }
+}
+
+Intrinsic::ID
+VPIntrinsic::getForConstrainedIntrinsic(Intrinsic::ID IntrinsicID) {
+  switch (IntrinsicID) {
+    default:
+      return Intrinsic::not_intrinsic;
+
+    // llvm.experimental.constrained.*
+    case Intrinsic::experimental_constrained_cos:       return Intrinsic::vp_cos;
+    case Intrinsic::experimental_constrained_sin:       return Intrinsic::vp_sin;
+    case Intrinsic::experimental_constrained_exp:       return Intrinsic::vp_exp;
+    case Intrinsic::experimental_constrained_exp2:      return Intrinsic::vp_exp2;
+    case Intrinsic::experimental_constrained_log:       return Intrinsic::vp_log;
+    case Intrinsic::experimental_constrained_log2:      return Intrinsic::vp_log2;
+    case Intrinsic::experimental_constrained_log10:     return Intrinsic::vp_log10;
+    case Intrinsic::experimental_constrained_sqrt:      return Intrinsic::vp_sqrt;
+    case Intrinsic::experimental_constrained_ceil:      return Intrinsic::vp_ceil;
+    case Intrinsic::experimental_constrained_floor:     return Intrinsic::vp_floor;
+    case Intrinsic::experimental_constrained_round:     return Intrinsic::vp_round;
+    case Intrinsic::experimental_constrained_trunc:     return Intrinsic::vp_trunc;
+    case Intrinsic::experimental_constrained_rint:      return Intrinsic::vp_rint;
+    case Intrinsic::experimental_constrained_nearbyint: return Intrinsic::vp_nearbyint;
+  
+    case Intrinsic::experimental_constrained_fadd:      return Intrinsic::vp_fadd;
+    case Intrinsic::experimental_constrained_fsub:      return Intrinsic::vp_fsub;
+    case Intrinsic::experimental_constrained_fmul:      return Intrinsic::vp_fmul;
+    case Intrinsic::experimental_constrained_fdiv:      return Intrinsic::vp_fdiv;
+    case Intrinsic::experimental_constrained_frem:      return Intrinsic::vp_frem;
+    case Intrinsic::experimental_constrained_pow:       return Intrinsic::vp_pow;
+    case Intrinsic::experimental_constrained_powi:      return Intrinsic::vp_powi;
+    case Intrinsic::experimental_constrained_maxnum:    return Intrinsic::vp_maxnum;
+    case Intrinsic::experimental_constrained_minnum:    return Intrinsic::vp_minnum;
+  
+    case Intrinsic::experimental_constrained_fma:       return Intrinsic::fma;
+  }
+}
+
+Intrinsic::ID
+VPIntrinsic::getForOpcode(unsigned OC) {
   switch (OC) {
   default:
-    return VPIntrinsicDesc{Intrinsic::not_intrinsic, TypeTokenVec(), -1, -1};
+    return Intrinsic::not_intrinsic;
 
     // fp unary
-    case Instruction::FNeg: return VPIntrinsicDesc{ Intrinsic::vp_fneg, TypeTokenVec{VPTypeToken::Vector}, 1, 2}; break;
+    case Instruction::FNeg:   return Intrinsic::vp_fneg;
 
     // fp binary
-    case Instruction::FAdd: return VPIntrinsicDesc{ Intrinsic::vp_fadd, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::FSub: return VPIntrinsicDesc{ Intrinsic::vp_fsub, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::FMul: return VPIntrinsicDesc{ Intrinsic::vp_fmul, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::FDiv: return VPIntrinsicDesc{ Intrinsic::vp_fdiv, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::FRem: return VPIntrinsicDesc{ Intrinsic::vp_frem, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
+    case Instruction::FAdd:   return Intrinsic::vp_fadd;
+    case Instruction::FSub:   return Intrinsic::vp_fsub;
+    case Instruction::FMul:   return Intrinsic::vp_fmul;
+    case Instruction::FDiv:   return Intrinsic::vp_fdiv;
+    case Instruction::FRem:   return Intrinsic::vp_frem;
 
     // sign-oblivious int
-    case Instruction::Add:  return VPIntrinsicDesc{ Intrinsic::vp_add, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::Sub:  return VPIntrinsicDesc{ Intrinsic::vp_sub, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::Mul:  return VPIntrinsicDesc{ Intrinsic::vp_mul, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
+    case Instruction::Add:    return Intrinsic::vp_add;
+    case Instruction::Sub:    return Intrinsic::vp_sub;
+    case Instruction::Mul:    return Intrinsic::vp_mul;
 
     // signed/unsigned int
-    case Instruction::SDiv: return VPIntrinsicDesc{ Intrinsic::vp_sdiv, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::UDiv: return VPIntrinsicDesc{ Intrinsic::vp_udiv, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::SRem: return VPIntrinsicDesc{ Intrinsic::vp_srem, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::URem: return VPIntrinsicDesc{ Intrinsic::vp_urem, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
+    case Instruction::SDiv:   return Intrinsic::vp_sdiv;
+    case Instruction::UDiv:   return Intrinsic::vp_udiv;
+    case Instruction::SRem:   return Intrinsic::vp_srem;
+    case Instruction::URem:   return Intrinsic::vp_urem;
 
     // logical
-    case Instruction::Or:   return VPIntrinsicDesc{ Intrinsic::vp_or,  TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::And:  return VPIntrinsicDesc{ Intrinsic::vp_and, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::Xor:  return VPIntrinsicDesc{ Intrinsic::vp_xor, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
+    case Instruction::Or:     return Intrinsic::vp_or;
+    case Instruction::And:    return Intrinsic::vp_and;
+    case Instruction::Xor:    return Intrinsic::vp_xor;
 
-    case Instruction::LShr: return VPIntrinsicDesc{ Intrinsic::vp_lshr, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::AShr: return VPIntrinsicDesc{ Intrinsic::vp_ashr, TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
-    case Instruction::Shl:  return VPIntrinsicDesc{ Intrinsic::vp_shl,  TypeTokenVec{VPTypeToken::Vector}, 2, 3}; break;
+    case Instruction::LShr:   return Intrinsic::vp_lshr;
+    case Instruction::AShr:   return Intrinsic::vp_ashr;
+    case Instruction::Shl:    return Intrinsic::vp_shl;
 
     // comparison
     case Instruction::ICmp:
     case Instruction::FCmp:
-      return VPIntrinsicDesc{ Intrinsic::vp_cmp, TypeTokenVec{VPTypeToken::Mask, VPTypeToken::Vector}, 2, 3}; break;
+      return Intrinsic::vp_cmp;
   }
 }
 

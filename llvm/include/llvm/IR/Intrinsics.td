@@ -1404,7 +1404,7 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<3>, VectorLe
   def int_vp_sin  : Intrinsic<[ llvm_anyfloat_ty ],
                               [ LLVMMatchType<0>,
                                 llvm_metadata_ty,
-                                llvm_metadata_ty ]>;
+                                llvm_metadata_ty,
                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                 llvm_i32_ty]>;
   def int_vp_cos  : Intrinsic<[ llvm_anyfloat_ty ],
@@ -1422,7 +1422,7 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<3>, VectorLe
   def int_vp_log10: Intrinsic<[ llvm_anyfloat_ty ],
                               [ LLVMMatchType<0>,
                                 llvm_metadata_ty,
-                                llvm_metadata_ty
+                                llvm_metadata_ty,
                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                 llvm_i32_ty]>;
   def int_vp_log2 : Intrinsic<[ llvm_anyfloat_ty ],
@@ -1434,7 +1434,7 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<3>, VectorLe
   def int_vp_exp  : Intrinsic<[ llvm_anyfloat_ty ],
                               [ LLVMMatchType<0>,
                                 llvm_metadata_ty,
-                                llvm_metadata_ty
+                                llvm_metadata_ty,
                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                 llvm_i32_ty]>;
   def int_vp_exp2 : Intrinsic<[ llvm_anyfloat_ty ],
@@ -1458,7 +1458,7 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<3>, VectorLe
   def int_vp_lrint : Intrinsic<[ llvm_anyint_ty ],
                                [ llvm_anyfloat_ty,
                                  llvm_metadata_ty,
-                                 llvm_metadata_ty
+                                 llvm_metadata_ty,
                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                  llvm_i32_ty]>;
   def int_vp_llrint : Intrinsic<[ llvm_anyint_ty ],

@@ -255,12 +255,22 @@ namespace llvm {
       TypeTokenVec typeTokens; // Type Parmeters for the LLVM Intrinsic.
       int MaskPos; // Parameter index of the Mask parameter.
       int EVLPos; // Parameter index of the (Explicit) Vector Length parameter.
+      int ebPos; // Parameter index of the exception behavior parameter.
+      int rmPos; // Parameter index of the rounding mode behavior parameter.
     };
 
     // Translate this generic Opcode to a VPIntrinsic
     static VPIntrinsicDesc GetVPIntrinsicDesc(unsigned OC);
     // Translate this non-VP intrinsic to a VPIntrinsic.
     static VPIntrinsicDesc GetVPDescForIntrinsic(unsigned IntrinsicID);
+
+    static Optional<int> getMaskParamPos(Intrinsic::ID IntrinsicID);
+    static Optional<int> getVectorLengthParamPos(Intrinsic::ID IntrinsicID);
+    static Optional<int> getExceptionBehaviorParamPos(Intrinsic::ID IntrinsicID);
+    static Optional<int> getRoundingModeParamPos(Intrinsic::ID IntrinsicID);
+    // the llvm.vp.* intrinsic for this llvm.experimental.constrained.* intrinsic
+    static Intrinsic::ID getForConstrainedIntrinsic(Intrinsic::ID IntrinsicID);
+    static Intrinsic::ID getForOpcode(unsigned OC);
 
     // Generate the disambiguating type vec for this VP Intrinsic
     static VPIntrinsic::ShortTypeVec
@@ -278,9 +288,17 @@ namespace llvm {
     bool isCompareOp() const { return getIntrinsicID() == Intrinsic::vp_cmp; }
     CmpInst::Predicate getCmpPredicate() const;
 
-    // llvm.vp.constrained.*
+    // Contrained fp-math
+    // whether this is an fp op with non-standard rounding or exception behavior.
     bool isConstrainedOp() const;
+    // whether the intrinsic has a rounding mode parameter (regardless of setting).
+    bool hasRoundingModeParam() const;
+    // whether the intrinsic has a exception behavior parameter (regardless of setting).
+    bool hasExceptionBehaviorParam() const;
+
+    // the specified rounding mode.
     Optional<RoundingMode> getRoundingMode() const;
+    // the specified exception behavior.
     Optional<ExceptionBehavior> getExceptionBehavior() const;
 
     // llvm.vp.reduction.*
@@ -292,26 +310,38 @@ namespace llvm {
       default:
         return false;
 
+      // general cmp
       case Intrinsic::vp_cmp:
 
+      // int arith
       case Intrinsic::vp_and:
       case Intrinsic::vp_or:
       case Intrinsic::vp_xor:
       case Intrinsic::vp_ashr:
       case Intrinsic::vp_lshr:
       case Intrinsic::vp_shl:
+      case Intrinsic::vp_add:
+      case Intrinsic::vp_sub:
+      case Intrinsic::vp_mul:
+      case Intrinsic::vp_udiv:
+      case Intrinsic::vp_sdiv:
+      case Intrinsic::vp_urem:
+      case Intrinsic::vp_srem:
 
+      // memory
+      case Intrinsic::vp_load:
+      case Intrinsic::vp_store:
+      case Intrinsic::vp_gather:
+      case Intrinsic::vp_scatter:
+
+      // shuffle
       case Intrinsic::vp_select:
       case Intrinsic::vp_compose:
       case Intrinsic::vp_compress:
       case Intrinsic::vp_expand:
       case Intrinsic::vp_vshift:
 
-      case Intrinsic::vp_load:
-      case Intrinsic::vp_store:
-      case Intrinsic::vp_gather:
-      case Intrinsic::vp_scatter:
-
+      // fp arith
       case Intrinsic::vp_fneg:
 
       case Intrinsic::vp_fadd:
@@ -321,15 +351,33 @@ namespace llvm {
       case Intrinsic::vp_frem:
 
       case Intrinsic::vp_fma:
+      case Intrinsic::vp_ceil:
+      case Intrinsic::vp_cos:
+      case Intrinsic::vp_exp2:
+      case Intrinsic::vp_exp:
+      case Intrinsic::vp_floor:
+      case Intrinsic::vp_log10:
+      case Intrinsic::vp_log2:
+      case Intrinsic::vp_log:
+      case Intrinsic::vp_maxnum:
+      case Intrinsic::vp_minnum:
+      case Intrinsic::vp_nearbyint:
+      case Intrinsic::vp_pow:
+      case Intrinsic::vp_powi:
+      case Intrinsic::vp_rint:
+      case Intrinsic::vp_round:
+      case Intrinsic::vp_sin:
+      case Intrinsic::vp_sqrt:
+      case Intrinsic::vp_trunc:
+      case Intrinsic::vp_fptoui:
+      case Intrinsic::vp_fptosi:
+      case Intrinsic::vp_fpext:
+      case Intrinsic::vp_fptrunc:
 
-      case Intrinsic::vp_add:
-      case Intrinsic::vp_sub:
-      case Intrinsic::vp_mul:
-      case Intrinsic::vp_udiv:
-      case Intrinsic::vp_sdiv:
-      case Intrinsic::vp_urem:
-      case Intrinsic::vp_srem:
+      case Intrinsic::vp_lround:
+      case Intrinsic::vp_llround:
 
+      // reductions
       case Intrinsic::vp_reduce_add:
       case Intrinsic::vp_reduce_mul:
       case Intrinsic::vp_reduce_umin:
@@ -345,31 +393,6 @@ namespace llvm {
       case Intrinsic::vp_reduce_fmul:
       case Intrinsic::vp_reduce_fmin:
       case Intrinsic::vp_reduce_fmax:
-
-      case Intrinsic::vp_constrained_fadd:
-      case Intrinsic::vp_constrained_fsub:
-      case Intrinsic::vp_constrained_fmul:
-      case Intrinsic::vp_constrained_fdiv:
-      case Intrinsic::vp_constrained_frem:
-      case Intrinsic::vp_constrained_fma:
-      case Intrinsic::vp_constrained_sqrt:
-      case Intrinsic::vp_constrained_pow:
-      case Intrinsic::vp_constrained_powi:
-      case Intrinsic::vp_constrained_sin:
-      case Intrinsic::vp_constrained_cos:
-      case Intrinsic::vp_constrained_exp:
-      case Intrinsic::vp_constrained_exp2:
-      case Intrinsic::vp_constrained_log:
-      case Intrinsic::vp_constrained_log10:
-      case Intrinsic::vp_constrained_log2:
-      case Intrinsic::vp_constrained_rint:
-      case Intrinsic::vp_constrained_nearbyint:
-      case Intrinsic::vp_constrained_maxnum:
-      case Intrinsic::vp_constrained_minnum:
-      case Intrinsic::vp_constrained_ceil:
-      case Intrinsic::vp_constrained_floor:
-      case Intrinsic::vp_constrained_round:
-      case Intrinsic::vp_constrained_trunc:
         return true;
       }
     }
