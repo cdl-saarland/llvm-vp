@@ -1583,7 +1583,7 @@ def int_vp_fma : Intrinsic<[ llvm_anyvector_ty ],
                                          llvm_metadata_ty,
                                          LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
                                          llvm_i32_ty ],
-                                       [ IntrInaccessibleMemOnly, Mask<5>, VectorLength<6> ]>;
+                                       [ IntrInaccessibleMemOnly, IntrWillReturn, Mask<5>, VectorLength<6> ]>;
 
 
 
