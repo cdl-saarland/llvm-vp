@@ -238,6 +238,14 @@ namespace llvm {
   /// input in constrained intrinsic exception behavior metadata.
   Optional<StringRef> ExceptionBehaviorToStr(ExceptionBehavior);
 
+  /// Return the IR Value representation of any ExceptionBehavior.
+  Value*
+  GetConstrainedFPExcept(LLVMContext&, ExceptionBehavior);
+
+  /// Return the IR Value representation of any RoundingMode.
+  Value*
+  GetConstrainedFPRounding(LLVMContext&, RoundingMode);
+
   class VPIntrinsic : public IntrinsicInst {
   public:
     enum class VPTypeToken : int8_t {

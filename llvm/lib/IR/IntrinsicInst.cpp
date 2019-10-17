@@ -166,6 +166,29 @@ llvm::RoundingModeToStr(RoundingMode UseRounding) {
   return RoundingStr;
 }
 
+/// Return the IR Value representation of any ExceptionBehavior.
+Value*
+llvm::GetConstrainedFPExcept(LLVMContext& Context, ExceptionBehavior UseExcept) {
+    Optional<StringRef> ExceptStr =
+        ExceptionBehaviorToStr(UseExcept);
+    assert(ExceptStr.hasValue() && "Garbage strict exception behavior!");
+    auto *ExceptMDS = MDString::get(Context, ExceptStr.getValue());
+
+    return MetadataAsValue::get(Context, ExceptMDS);
+}
+
+/// Return the IR Value representation of any RoundingMode.
+Value*
+llvm::GetConstrainedFPRounding(LLVMContext& Context, RoundingMode UseRounding) {
+    Optional<StringRef> RoundingStr =
+        RoundingModeToStr(UseRounding);
+    assert(RoundingStr.hasValue() && "Garbage strict rounding mode!");
+    auto *RoundingMDS = MDString::get(Context, RoundingStr.getValue());
+
+    return MetadataAsValue::get(Context, RoundingMDS);
+}
+
+
 Optional<RoundingMode>
 ConstrainedFPIntrinsic::getRoundingMode() const {
   unsigned NumOperands = getNumArgOperands();

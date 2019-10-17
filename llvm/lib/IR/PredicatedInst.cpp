@@ -47,13 +47,14 @@ PredicatedBinaryOperator::Create(Module * Mod,
   auto TypeTokens = VPIntrinsic::GetTypeTokens(VPID);
   auto * VPFunc = Intrinsic::getDeclaration(Mod, VPID, VPIntrinsic::EncodeTypeTokens(TypeTokens, &VecTy, VecTy, ScalarTy));
 
+  // Encode default environment fp behavior
   LLVMContext & Ctx = V1->getContext();
   SmallVector<Value*, 6> BinOpArgs({V1, V2});
   if (VPIntrinsic::hasRoundingModeParam(VPID)) {
-    BinOpArgs.push_back(MetadataAsValue::get(Ctx, MDTuple::get(Ctx, {})));
+    BinOpArgs.push_back(GetConstrainedFPRounding(Ctx, RoundingMode::rmToNearest));
   }
   if (VPIntrinsic::hasExceptionBehaviorParam(VPID)) {
-    BinOpArgs.push_back(MetadataAsValue::get(Ctx, MDTuple::get(Ctx, {})));
+    BinOpArgs.push_back(GetConstrainedFPExcept(Ctx, ExceptionBehavior::ebIgnore));
   }
 
   BinOpArgs.push_back(Mask);

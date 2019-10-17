@@ -14,6 +14,7 @@ using ValArray = ArrayRef<Value*>;
 
 class VPBuilder {
   IRBuilder<> & Builder;
+
   // Explicit mask parameter
   Value * Mask;
   // Explicit vector length parameter
