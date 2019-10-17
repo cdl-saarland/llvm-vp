@@ -63,15 +63,14 @@ public:
 
   unsigned getOpcode() const {
     auto * VPInst = dyn_cast<VPIntrinsic>(this);
-    if (VPInst)
-      return VPInst->getFunctionalOpcode();
-    return cast<Instruction>(this)->getOpcode();
-  }
 
-#if 0
-  operator Instruction() { return cast<Value>(this); }
-  operator const Value() const { return cast<const Value>(this); }
-#endif
+    // Conceal the fp operation if it has non-default rounding mode or exception behavior
+    if (!VPInst || VPInst->isConstrainedOp()) {
+      return cast<Instruction>(this)->getOpcode();
+    }
+
+    return VPInst->getFunctionalOpcode();
+  }
 
   static bool classof(const Instruction * I) { return isa<Instruction>(I); }
   static bool classof(const ConstantExpr * CE) { return false; }
@@ -87,18 +86,18 @@ public:
 
   void *operator new(size_t s) = delete;
 
-#if 0
-  operator Value*() { return cast<Value>(this); }
-  operator const Value*() const { return cast<const Value>(this); }
-#endif
-
   /// Return the opcode for this Instruction or ConstantExpr.
   unsigned getOpcode() const {
     auto * VPInst = dyn_cast<VPIntrinsic>(this);
-    if (VPInst)
+
+    // Conceal the fp operation if it has non-default rounding mode or exception behavior
+    if (VPInst && !VPInst->isConstrainedOp()) {
       return VPInst->getFunctionalOpcode();
+    }
+
     if (const Instruction *I = dyn_cast<Instruction>(this))
       return I->getOpcode();
+
     return cast<ConstantExpr>(this)->getOpcode();
   }
 
@@ -323,31 +322,31 @@ struct PredicatedContext {
   , Mod(PC.Mod)
   {}
 
-  // accept a match where \p Val is in a non-leaf position in a match pattern
+  /// accept a match where \p Val is in a non-leaf position in a match pattern
   bool acceptInnerNode(const Value * Val) const {
     auto PredI = dyn_cast<PredicatedInstruction>(Val);
     if (!PredI) return VectorLength == nullptr && Mask == nullptr;
     return VectorLength == PredI->getVectorLength() && Mask == PredI->getMask();
   }
 
-  // accept a match where \p Val is bound to a free variable.
+  /// accept a match where \p Val is bound to a free variable.
   bool acceptBoundNode(const Value * Val) const { return true; }
 
-  // whether this context is compatiable with \p E.
+  /// whether this context is compatiable with \p E.
   bool acceptContext(PredicatedContext PC) const {
-    return PC.Mask == Mask && PC.VectorLength == VectorLength;
+    return std::tie(PC.Mask, PC.VectorLength) == std::tie(Mask, VectorLength);
   }
 
-  // merge the context \p E into this context and return whether the resulting context is valid.
+  /// merge the context \p E into this context and return whether the resulting context is valid.
   bool mergeContext(PredicatedContext PC) const { return acceptContext(PC); }
 
-  // match \p P in a new contest for \p Val.
+  /// match \p P in a new contest for \p Val.
   template <typename Val, typename Pattern> bool reset_match(Val *V, const Pattern &P) {
     reset(V);
     return const_cast<Pattern &>(P).match_context(V, *this);
   }
 
-  // match \p P in the current context.
+  /// match \p P in the current context.
   template <typename Val, typename Pattern> bool try_match(Val *V, const Pattern &P) {
     PredicatedContext SubContext(*this);
     return const_cast<Pattern &>(P).match_context(V, SubContext);
