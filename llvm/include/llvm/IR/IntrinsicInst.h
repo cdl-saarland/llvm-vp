@@ -399,6 +399,10 @@ namespace llvm {
 
     // Equivalent non-predicated opcode
     unsigned getFunctionalOpcode() const {
+      if (isConstrainedOp()) {
+        return Instruction::Call; // TODO pass as constrained op
+      }
+
       switch (getIntrinsicID()) {
         default: return Instruction::Call;
 

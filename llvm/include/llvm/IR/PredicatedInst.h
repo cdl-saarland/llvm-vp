@@ -64,8 +64,7 @@ public:
   unsigned getOpcode() const {
     auto * VPInst = dyn_cast<VPIntrinsic>(this);
 
-    // Conceal the fp operation if it has non-default rounding mode or exception behavior
-    if (!VPInst || VPInst->isConstrainedOp()) {
+    if (!VPInst) {
       return cast<Instruction>(this)->getOpcode();
     }
 
@@ -89,6 +88,7 @@ public:
   /// Return the opcode for this Instruction or ConstantExpr.
   unsigned getOpcode() const {
     auto * VPInst = dyn_cast<VPIntrinsic>(this);
+
 
     // Conceal the fp operation if it has non-default rounding mode or exception behavior
     if (VPInst && !VPInst->isConstrainedOp()) {
