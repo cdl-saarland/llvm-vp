@@ -1122,30 +1122,30 @@ def int_ptrmask: Intrinsic<[llvm_anyptr_ty], [llvm_anyptr_ty, llvm_anyint_ty],
 
 // Memory Intrinsics
 def int_vp_store : Intrinsic<[],
-                              [ llvm_anyvector_ty,
-                                LLVMAnyPointerType<LLVMMatchType<0>>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty],
-                              [ IntrArgMemOnly, Mask<2>, VectorLength<3> ]>;
+                             [ llvm_anyvector_ty,
+                               LLVMAnyPointerType<LLVMMatchType<0>>,
+                               LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                               llvm_i32_ty],
+                             [ IntrArgMemOnly, IntrWillReturn, Mask<2>, VectorLength<3> ]>;
 
 def int_vp_load  : Intrinsic<[ llvm_anyvector_ty],
-                              [ LLVMAnyPointerType<LLVMMatchType<0>>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty],
-                              [ IntrReadMem, IntrArgMemOnly, Mask<1>, VectorLength<2> ]>;
+                             [ LLVMAnyPointerType<LLVMMatchType<0>>,
+                               LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                               llvm_i32_ty],
+                             [ IntrReadMem, IntrWillReturn, IntrArgMemOnly, Mask<1>, VectorLength<2> ]>;
 
 def int_vp_gather: Intrinsic<[ llvm_anyvector_ty],
-                              [ LLVMVectorOfAnyPointersToElt<0>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty],
-                              [ IntrReadMem, IntrReadMem, Mask<1>, VectorLength<2> ]>;
+                             [ LLVMVectorOfAnyPointersToElt<0>,
+                               LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                               llvm_i32_ty],
+                             [ IntrReadMem, IntrWillReturn, IntrArgMemOnly, Mask<1>, VectorLength<2> ]>;
 
 def int_vp_scatter: Intrinsic<[],
-                               [ llvm_anyvector_ty,
-                                 LLVMVectorOfAnyPointersToElt<0>,
-                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                 llvm_i32_ty],
-                               [ IntrArgMemOnly, Mask<2>, VectorLength<3> ]>;
+                              [ llvm_anyvector_ty,
+                                LLVMVectorOfAnyPointersToElt<0>,
+                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                llvm_i32_ty],
+                              [ IntrArgMemOnly, IntrWillReturn, Mask<2>, VectorLength<3> ]>;
 
 // Reductions
 let IntrProperties = [IntrNoMem, Mask<2>, VectorLength<3>] in {
@@ -1218,7 +1218,7 @@ def int_vp_reduce_fmin : Intrinsic<[llvm_anyfloat_ty],
 }
 
 // Binary operators
-let IntrProperties = [IntrNoMem, Mask<2>, VectorLength<3>] in {
+let IntrProperties = [IntrNoMem, IntrWillReturn, Mask<2>, VectorLength<3>] in {
   def int_vp_add : Intrinsic<[ llvm_anyvector_ty ],
                               [ LLVMMatchType<0>,
                                 LLVMMatchType<0>,
@@ -1290,59 +1290,51 @@ let IntrProperties = [IntrNoMem, Mask<2>, VectorLength<3>] in {
 // Comparison
 // The last argument is the comparison predicate 
   def int_vp_cmp : Intrinsic<[ llvm_anyvector_ty ],
-                              [ llvm_anyvector_ty,
-                                LLVMMatchType<1>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty,
-                                llvm_i8_ty]>;
-}
-
-
-
-def int_vp_fneg : Intrinsic<[ llvm_anyvector_ty ],
-                             [ LLVMMatchType<0>,
+                             [ llvm_anyvector_ty,
+                               LLVMMatchType<1>,
                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                               llvm_i32_ty],
-                             [ IntrNoMem, Mask<1>, VectorLength<2> ]>;
+                               llvm_i32_ty,
+                               llvm_i8_ty]>;
+}
 
 
 // Shuffle
 def int_vp_vshift: Intrinsic<[ llvm_anyvector_ty ],
-                              [ LLVMMatchType<0>,
-                                llvm_i32_ty,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty],
-                              [ IntrNoMem, Mask<2>, VectorLength<3> ]>;
+                             [ LLVMMatchType<0>,
+                               llvm_i32_ty,
+                               LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                               llvm_i32_ty],
+                             [ IntrNoMem, Mask<2>, VectorLength<3> ]>;
 
 def int_vp_expand: Intrinsic<[ llvm_anyvector_ty ],
-                              [ LLVMMatchType<0>,
-                                LLVMMatchType<0>,
-                                LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                llvm_i32_ty],
-                              [ IntrNoMem, Mask<2>, VectorLength<3> ]>;
+                             [ LLVMMatchType<0>,
+                               LLVMMatchType<0>,
+                               LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                               llvm_i32_ty],
+                             [ IntrNoMem, Mask<2>, VectorLength<3> ]>;
 
 def int_vp_compress: Intrinsic<[ llvm_anyvector_ty ],
-                                [ LLVMMatchType<0>,
-                                  LLVMMatchType<0>,
-                                  LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                  llvm_i32_ty],
-                                [ IntrNoMem, Mask<2>, VectorLength<3> ]>;
+                               [ LLVMMatchType<0>,
+                                 LLVMMatchType<0>,
+                                 LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                 llvm_i32_ty],
+                               [ IntrNoMem, Mask<2>, VectorLength<3> ]>;
 
 // Select
 def int_vp_select : Intrinsic<[ llvm_anyvector_ty ],
-                               [ LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
-                                 LLVMMatchType<0>,
-                                 LLVMMatchType<0>,
-                                 llvm_i32_ty],
-                               [ IntrNoMem, Passthru<2>, Mask<0>, VectorLength<3> ]>;
+                              [ LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                                LLVMMatchType<0>,
+                                LLVMMatchType<0>,
+                                llvm_i32_ty],
+                              [ IntrNoMem, Passthru<2>, Mask<0>, VectorLength<3> ]>;
 
 // Compose
 def int_vp_compose : Intrinsic<[ llvm_anyvector_ty ],
-                                [ LLVMMatchType<0>,
-                                  LLVMMatchType<0>,
-                                  llvm_i32_ty,
-                                  llvm_i32_ty],
-                                [ IntrNoMem, VectorLength<3> ]>;
+                               [ LLVMMatchType<0>,
+                                 LLVMMatchType<0>,
+                                 llvm_i32_ty,
+                                 llvm_i32_ty],
+                               [ IntrNoMem, VectorLength<3> ]>;
 
 
 
@@ -1533,6 +1525,13 @@ let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<4>, VectorLe
 
 
 // VP standard fp-math intrinsics.
+def int_vp_fneg : Intrinsic<[ llvm_anyvector_ty ],
+                            [ LLVMMatchType<0>,
+                              llvm_metadata_ty,
+                              LLVMScalarOrSameVectorWidth<0, llvm_i1_ty>,
+                              llvm_i32_ty],
+                            [ IntrInaccessibleMemOnly, Mask<2>, VectorLength<3> ]>;
+
 let IntrProperties = [IntrInaccessibleMemOnly, IntrWillReturn, Mask<4>, VectorLength<5> ] in {
   // These intrinsics are sensitive to the rounding mode so we need constrained
   // versions of each of them.  When strict rounding and exception control are
